@@ -1,0 +1,48 @@
+---
+title: "01: Diversidade genética em genótipos de linho (Linum usitatissimum, L.) cultivados em Florianópolis-SC"
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+
+```
+
+
+# Pacotes
+
+
+```{r warning=FALSE, message=FALSE}
+library(pliman)
+set_wd_here("figs/capsulas")
+img <- image_import("00a9b780-f098-44c5-aca7-5c77501e18a8.jpg")
+
+```
+
+# Analisar as fotos
+
+```{r}
+img2 <- image_resize(img, rel_size = 50)
+system.time(
+  res <- 
+    analyze_objects(
+      img2,
+      index = "GRAY",
+      marker = "point",
+      
+    )
+)
+
+
+```
+
+
+
+# Section info
+```{r}
+sessionInfo()
+```
+
