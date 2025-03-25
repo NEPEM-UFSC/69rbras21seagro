@@ -1,0 +1,69 @@
+---
+  title: "03: Análise de Componentes Principais para Caracterização e Priorização de Variáveis em Genótipos de Linho (Linum usitatissimum, L.)"
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+
+```
+
+
+# Pacotes
+
+```{r warning=FALSE, message=FALSE}
+library(rio)
+library(tidyverse)
+library(metan)
+df <- import_list("data/progresso.xlsx")
+g2022 <- df$`2022` |> select(GEN, RGPLA) |> rename(A2022 = RGPLA)
+g2023 <- df$`2023` |> select(GEN, RGPLA) |> rename(A2023 = RGPLA)
+g2024 <- df$`2024` |> select(GEN, RGPLA) |> rename(A2024 = RGPLA)
+
+
+dfge <- 
+  reduce(list(g2024, g2023, g2022), left_join) |> 
+  remove_rows_na()
+
+df_ggplot <- 
+  dfge |> 
+  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA") |> 
+  filter(GEN %in% c("G1", "G11"))
+
+ggplot(df_ggplot, aes(x = GEN, y = RGPLA, fill = AMB)) +
+  geom_col(position = position_dodge())
+```
+
+# caracterização ambiental
+
+```{r}
+clima <- 
+  EnvRtype::get_weather(
+    env.id = c("FLO", "CN"),
+    lat = c(-27.6810177980859, -27.3707713953127),
+    lon = c(-48.5411169295322, -51.2042791092714),
+    start.day = "2024-04-01",
+    end.day = "2024-11-30",
+    variables.names = c("T2M", "T2M_MAX", "T2M_MIN", "RH2M")
+  )
+```
+
+
+# adaptabilidade
+```{r}
+mod <- waas_means(dfge, name, GEN, value)
+plot_scores(mod)
+plot_scores(mod, type = 3)
+plot_waasby(mod)
+
+```
+
+
+# Section info
+```{r}
+sessionInfo()
+```
+

@@ -22,23 +22,45 @@ img <- image_import("00a9b780-f098-44c5-aca7-5c77501e18a8.jpg")
 
 ```
 
-# Analisar as fotos
-
+# Contagem manual
 ```{r}
-img2 <- image_resize(img, rel_size = 50)
-system.time(
-  res <- 
-    analyze_objects(
-      img2,
-      index = "GRAY",
-      marker = "point",
-      
-    )
-)
-
+pick_count(img)
 
 ```
 
+
+
+# Analisar as fotos
+
+
+```{r}
+img2 <- image_resize(img, rel_size = 50)
+res <- 
+  analyze_objects(
+    img2,
+    index = "GRAY",
+    marker = "point",
+    opening = 10
+  )
+
+plot(img2)
+text(x = res$results$x, y = res$results$y -25, labels = round(res$results$area, 2), col = "red")
+```
+
+
+
+# Processamento em lote
+```{r}
+res <- 
+  analyze_objects(
+    pattern = "-",
+    dir_original = "figs/capsulas",
+    dir_processed = "figs/capsulas/proc",
+    index = "GRAY",
+    marker = "point",
+    opening = 10
+  )
+```
 
 
 # Section info

@@ -1,0 +1,81 @@
+
+![](figs/logo.png)    
+
+
+[![](https://zenodo.org/badge/758995037.svg)](https://zenodo.org/doi/10.5281/zenodo.11315766)
+
+
+
+# Sobre este material {.unnumbered}
+
+Neste website você pode encontrar os dados e scripts utilizados nas análises dos seguintes trabalhos apresentados na 69$^a$ Reunião Anual da Região Brasileira da Sociedade Internacional de Biometria (RBras) e 21$^o$ Simpósio de Estatística Aplicada à Experimentação Agronômica (SEAGRO), realizados na Universidade Federal do Espírito Santo (UFES), em Vitória, Espírito Santo, de 4 a 8 de agosto de 2025.
+
+# Pesquisadores {.unnumbered}
+
+```{r}
+#| echo: false
+slickR::slickR(
+  list.files("./figs/pesquisadores",full.names = TRUE,pattern = 'png'),
+  height = 200,
+  width = '95%',
+  padding = 20,
+  objLinks = c("https://www.linkedin.com/in/carlos-eduardo-forcelini-assoni-50b78a26a/",
+               "https://www.linkedin.com/in/olivoto/",
+               "https://www.linkedin.com/in/paulo-romeroo/",
+               "https://www.linkedin.com/in/jos%C3%A9-eduardo-pimentel-e-silva-b5961722a/",
+               "http://lattes.cnpq.br/2778715590464122",
+               "https://www.researchgate.net/profile/Kamilly-Tonet",
+               "https://www.linkedin.com/in/felipe-rosauro-3133bb1a7/",
+               "https://www.linkedin.com/in/matheus-l-40404219a/"
+               )
+) +
+  slickR::settings(dots = TRUE,
+                   autoplay = TRUE, 
+                   fade = TRUE,
+                   focusOnSelect = TRUE,
+                   autoplaySpeed = 2000)
+```
+
+# Como reproduzir? {.unnumbered}
+
+-   Faça o [Download dos dados](https://github.com/TiagoOlivoto/68rbras/archive/refs/heads/master.zip) do repositório github;
+-   Descompacte para uma pasta;
+-   Abra o projeto `68rbras.Rproj` no RStudio;
+-   Opcionalmente, altere funções e argumentos;
+-   Re-knit o documento para ver os resultados.
+
+
+# Licença  {.unnumbered}
+
+<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener"><img src="https://raw.githubusercontent.com/TiagoOlivoto/tiagoolivoto/master/static/img/gemsr/license.jpg" alt="Licença Creative Commons" style="border-width:0" width="300" height="80"/></a><br />Este conteúdo está licenciado com uma Licença <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons - Atribuição-NãoComercial-CompartilhaIgual 4.0 Internacional</a>. O resumo legível da licença afirma que você tem o direito de:
+
+-   **Compartilhar** --- copie e redistribua o material em qualquer meio ou formato.
+
+-   **Adaptar** --- remixar, transformar e construir sobre o material
+
+-   **Atribuir** --- Você deve dar o crédito apropriado, fornecer um link para a licença e indicar se foram feitas alterações. Você deve fazê-lo sob quaisquer circunstâncias razoáveis, mas de forma alguma sugerindo que o licenciante endossa você ou seu uso.
+
+Esta licença e válida sob os seguintes termos:
+
+-   **Não comercial (NC)** --- Você não pode usar o material para fins comerciais.
+-   **Share Alike (SA)** --- Se você remixar, transformar ou desenvolver o material, deverá distribuir suas contribuições sob a mesma licença do original.
+-   **Sem restrições adicionais** --- Você não pode aplicar termos legais ou medidas tecnológicas que restrinjam legalmente outras pessoas de fazer qualquer coisa que a licença permita.
+
+# Selo DC  {.unnumbered}
+
+<a rel="license" href="https://bendeivide.github.io/dc/" target="_blank" rel="noopener"><img src="https://github.com/bendeivide/dc/raw/main/SeloDC-preto2.png" alt="Licença Creative Commons" style="border-width:0" width="500" height="200"/></a>
+
+O selo [selo Democratizando Conhecimento](https://bendeivide.github.io/dc/) (DC) é uma ideia criada pelo Prof. [Ben Dêivid](https://bendeivide.github.io/). O selo é compatível com a licença [Creative Commons CC BY NC SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/) e é utilizado aqui para garantir que o acesso de todo esse material seja livre, gratuíto e de código aberto.
+
+# Visite-nos!  {.unnumbered}
+
+```{r}
+#| echo: false
+library(leaflet)
+leaflet() %>%
+  addTiles() %>%  # Add default OpenStreetMap map tiles
+  addMarkers(lng=-48.505555555556,
+             lat=-27.582222222222,
+             popup="Centro de Ciências Agrárias/UFSC")
+
+```

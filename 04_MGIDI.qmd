@@ -1,0 +1,64 @@
+---
+title: "04: MGIDI para seleção de genótipos de Linum usitatissimum no melhoramento genético vegetal"
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+
+```
+
+
+# Pacotes
+
+```{r warning=FALSE, message=FALSE}
+library(rio)
+library(tidyverse)
+library(factoextra)
+library(metan)
+library(pliman)
+dfgens <- import("data/met_2024.xlsx")
+df <- import("data/resimgs.xlsx")
+ggplot(df, aes(x = length)) +
+  geom_histogram() +
+  facet_wrap(~type, scales = "free")
+
+ggplot(df, aes(length, area)) +
+  geom_point(alpha = 0.5)
+```
+
+
+# Inspecionar
+```{r}
+df2 <- df |> arrange(desc(length))
+df |> 
+  slice_max(length, n = 1)
+```
+
+
+# Contagem
+```{r}
+resultado <- 
+df |> 
+  group_by(type, img) |> 
+  summarise(
+    n = n()
+  ) |> 
+  rename(UNIQUE_ID = img) |> 
+  pivot_wider(names_from = type, values_from = n)
+
+# juntar
+dffinal <- 
+  left_join(dfgens, resultado)
+```
+
+
+# Section info
+```{r}
+sessionInfo()
+
+```
+

@@ -1,0 +1,159 @@
+---
+title: "02: Identificação de espécies de plantas por análise de imagens: uma abordagem com Random Forest e características de forma e cor"
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+
+```
+
+
+# Pacotes
+
+```{r warning=FALSE, message=FALSE}
+library(rio)
+library(tidyverse)
+library(ggpubr)
+library(ggridges)
+```
+
+# Dados
+```{r}
+df <- import_list("data/progresso.xlsx")
+df$`2024` <- 
+  df$`2024` |> 
+  filter(RGPLA > 1.5)
+  
+junto <- 
+  bind_rows(df) |> 
+  mutate(ANO = as.factor(ANO))
+
+dfmean <-
+  junto |>
+  group_by(ANO) |>
+  summarise(across(AP:RGPLA, \(x){mean(x, na.rm = TRUE)})) |> 
+  mutate(ANO = as.factor(ANO))
+
+
+
+```
+
+# Teste t
+```{r}
+# Calculate n per group
+df_n <- 
+  junto  |> 
+  group_by(ANO) |> 
+  summarise(n = n(), .groups = 'drop')
+
+
+
+box <-
+  ggplot(junto, aes(x = ANO, y = RGPLA))+
+  geom_boxplot(aes(fill = ANO)) +
+  geom_jitter(width = 0.2, alpha =0.15) +
+  stat_summary(fun = mean,
+               geom = "point",
+               shape = 5,
+               fill = "red",
+               size = 3,
+               stroke = 1) +
+  stat_compare_means(method = "t.test",
+                     method.args = list(var.equal = TRUE),
+                     comparisons = list(c("2022", "2023"),
+                                        c("2022", "2024"),
+                                        c("2023", "2024"))) +
+  geom_text(data = df_n,
+            aes(x = ANO, y = 0, label = paste0("n = ", n)),
+            color = "gray50",
+            nudge_y = -1,
+            inherit.aes = FALSE) +
+  ggthemes::theme_stata(base_size = 14) +
+  theme(axis.text.y  = element_text(angle = 0),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank()) +
+  ylim(c(0, 10)) +
+  coord_flip() +
+  labs(x = "Ano de cultivo",
+       y = "Rendimento de grãos por planta (g)",
+       fill = "")
+```
+
+
+# Densidade
+```{r}
+dfmean <-
+  junto |>
+  group_by(ANO) |>
+  summarise(media = mean(RGPLA, na.rm = TRUE))
+
+dens <-
+ggplot(junto, aes(x = RGPLA, y = ANO, group = ANO, fill = ANO)) +
+  geom_density_ridges(alpha = 0.7) +
+  xlim(c(0, 10)) +
+  geom_vline(data = dfmean,
+             aes(xintercept = media,
+                 color = ANO),
+             show.legend = FALSE) +
+  ggthemes::theme_stata(base_size = 14) +
+  theme(axis.text.y  = element_text(angle = 0)) +
+  labs(x = "Rendimento de grãos por planta (g)",
+       y = "Ano de cultivo",
+       fill = "") 
+
+
+library(patchwork)
+box /dens +
+  plot_layout(guides = "collect",
+              heights = c(0.3, 0.7)) & 
+  theme(legend.position = "bottom")
+  
+```
+
+
+# Rendimento de Grãos
+```{r}
+df2024 <- 
+  df$`2024` |> 
+  mutate(check = ifelse(GEN == "ST_PIONEIRA", "Check", "Genótipos NEPEM"))
+
+ifelse("A" == "B")
+
+df2024 |> 
+  group_by(check) |> 
+  summarise(mean(RGPLA))
+
+ggplot(df2024, aes(x = reorder(GEN, -RGPLA), y = RGPLA, fill = check)) +
+  geom_col(color = "black") +
+  facet_wrap(~TIPO, 
+             scales = "free_x") +
+  geom_hline(yintercept = 4.17,
+             linetype = 2,
+             color = "red") +
+  scale_fill_manual(values = c("salmon", "#1AB281")) +
+  coord_radial(start = -0.5 * pi, end = 0.5 * pi, inner.radius = 0.3) +
+  scale_y_continuous(breaks = 0:6) +
+  ggthemes::theme_stata(base_size = 14) +
+  theme(panel.grid.major.x = element_line(),
+        plot.caption = element_text(hjust = 1, size = 12, face = "italic"),
+        plot.title = element_text(hjust = 0),
+        plot.subtitle = element_text(hjust = 0, size = 12, face = "italic")) +
+  labs(x = "",
+       y = "",
+       fill = "",
+       title = "Rendimento de grãos por planta (g) em genótipos de linhaça Marrom e Dourada",
+       subtitle = "Safra 2024",
+       caption = "Programa de Melhoramento NEPEM/UFSC")
+
+```
+
+
+# Section info
+```{r}
+sessionInfo()
+```
+
