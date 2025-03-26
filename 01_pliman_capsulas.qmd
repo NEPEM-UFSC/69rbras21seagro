@@ -17,8 +17,11 @@ knitr::opts_chunk$set(cache = FALSE,
 
 ```{r warning=FALSE, message=FALSE}
 library(pliman)
+library(tidyverse)
+library(purrr)
+library(rio)
 set_wd_here("figs/capsulas")
-img <- image_import("00a9b780-f098-44c5-aca7-5c77501e18a8.jpg")
+img <- image_import("5d46b89e-55ba-488d-9943-72fee6d7703b.jpg")
 
 ```
 
@@ -32,35 +35,114 @@ pick_count(img)
 
 # Analisar as fotos
 
+# Processamento em lote (validação)
+
 
 ```{r}
-img2 <- image_resize(img, rel_size = 50)
-res <- 
-  analyze_objects(
-    img2,
-    index = "GRAY",
-    marker = "point",
-    opening = 10
-  )
-
-plot(img2)
-text(x = res$results$x, y = res$results$y -25, labels = round(res$results$area, 2), col = "red")
+res_val <- 
+analyze_objects(
+  pattern = "-",
+  dir_original = "figs/R50/",
+  dir_processed = "figs/proc",
+  index = "GRAY",
+  marker = "point",
+  marker_col = "red",
+  save_image = TRUE,
+  opening = 10,
+  filter = 2
+)
+export(res_val$count, "validacao.xlsx")
 ```
 
 
 
-# Processamento em lote
+# Cenário 100%
 ```{r}
-res <- 
-  analyze_objects(
-    pattern = "-",
-    dir_original = "figs/capsulas",
-    dir_processed = "figs/capsulas/proc",
-    index = "GRAY",
-    marker = "point",
-    opening = 10
-  )
+# CENÁRIO COM IMAGENS ORIGINAIS
+cenarios <- expand_grid(open = c(0, 25),
+                        filt = c(0, 5))
+results_100 <- 
+  map_dfr(1:4, function(i){
+    tp <- 
+      system.time(
+        res <- 
+          analyze_objects(
+            pattern = "-",
+            dir_original = "figs/R100/",
+            index = "GRAY",
+            opening = cenarios[[i, 1]],
+            filter = cenarios[[i, 2]],
+            plot = FALSE
+          )
+      )
+    res$count |> 
+      mutate(filter = cenarios[[i, 2]],
+             opening = cenarios[[i, 1]],
+             resolucao = "100",
+             tempo = as.numeric(tp)[3])
+    
+  })
+
+
+
+# 50% DA RESOLUÇÃO
+
+cenarios <- expand_grid(open = c(0, 15),
+                        filt = c(0, 3))
+
+results_50 <- 
+  map_dfr(1:4, function(i){
+    tp <- 
+      system.time(
+        res <- 
+          analyze_objects(
+            pattern = "-",
+            dir_original = "figs/R50/",
+            index = "GRAY",
+            opening = cenarios[[i, 1]],
+            filter = cenarios[[i, 2]],
+            plot = FALSE
+          )
+      )
+    res$count |> 
+      mutate(filter = cenarios[[i, 2]],
+             opening = cenarios[[i, 1]],
+             resolucao = "50",
+             tempo = as.numeric(tp)[3])
+    
+  })
+
+# 25% DA RESOLUÇÃO
+cenarios <- expand_grid(open = c(0, 5),
+                        filt = c(0, 2))
+
+results_25 <- 
+  map_dfr(1:4, function(i){
+    tp <- 
+      system.time(
+        res <- 
+          analyze_objects(
+            pattern = "-",
+            dir_original = "figs/R25/",
+            index = "GRAY",
+            opening = cenarios[[i, 1]],
+            filter = cenarios[[i, 2]],
+            plot = FALSE
+          )
+      )
+    res$count |> 
+      mutate(filter = cenarios[[i, 2]],
+             opening = cenarios[[i, 1]],
+             resolucao = "25",
+             tempo = as.numeric(tp)[3])
+    
+  })
+
+final <- bind_rows(results_100, results_50, results_25)
+export(final, "dados_cenarios.xlsx")
 ```
+
+
 
 
 # Section info
