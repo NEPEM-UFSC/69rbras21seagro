@@ -1,5 +1,5 @@
 ---
-  title: "03: Análise de Componentes Principais para Caracterização e Priorização de Variáveis em Genótipos de Linho (Linum usitatissimum, L.)"
+  title: ""
 ---
 
 ```{r global_options, include = FALSE}
@@ -18,6 +18,7 @@ knitr::opts_chunk$set(cache = FALSE,
 library(rio)
 library(tidyverse)
 library(metan)
+library(ggridges)
 df <- import_list("data/progresso.xlsx")
 g2022 <- df$`2022` |> select(GEN, RGPLA) |> rename(A2022 = RGPLA)
 g2023 <- df$`2023` |> select(GEN, RGPLA) |> rename(A2023 = RGPLA)
@@ -33,34 +34,96 @@ df_ggplot <-
   pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA") |> 
   filter(GEN %in% c("G1", "G11"))
 
-ggplot(df_ggplot, aes(x = GEN, y = RGPLA, fill = AMB)) +
+ggplot(df_ggplot, aes(x = AMB, y = RGPLA, fill = GEN)) +
   geom_col(position = position_dodge())
 ```
 
-# caracterização ambiental
+
+
+# Interação genótipo ambiente
+
+$$
+y_{ij} = m + g_i + a_j + (ga)_{ij}
+$$
+
+$$
+\hat{g_i} = \bar{g_i} - m  \\
+\hat{a_j} = \bar{a_j} - m  
+$$
+$$
+\hat{(ga)_{ij}} = y_{ij} - m - \hat{g_i} - \hat{a_j} \\
+\hat{(ga)_{ij}} = y_{ij} - \bar{g_i} - \bar{a_j} + m
+$$
+
 
 ```{r}
-clima <- 
-  EnvRtype::get_weather(
-    env.id = c("FLO", "CN"),
-    lat = c(-27.6810177980859, -27.3707713953127),
-    lon = c(-48.5411169295322, -51.2042791092714),
-    start.day = "2024-04-01",
-    end.day = "2024-11-30",
-    variables.names = c("T2M", "T2M_MAX", "T2M_MIN", "RH2M")
-  )
+matga <- dfge |> column_to_rownames("GEN") |> as.matrix()
+m <- mean(matga)
+
+# ESTIMANDO O EFEITO DA INTERAÇÃO
+mat_ef <- matrix(NA, ncol = ncol(matga), nrow = nrow(matga))
+
+for(i in 1:nrow(matga)){
+  egi <- mean(matga[i, ]) - m
+  for(j in 1:ncol(matga)){
+    eaj <- mean(matga[, j]) - m
+    mat_ef[i, j] <- matga[i, j] - m - egi - eaj
+  }
+}
+colnames(mat_ef) <- colnames(matga)
+rownames(mat_ef) <- rownames(matga)
+
+
+# criar um mapa de calor
+dfggp <- 
+mat_ef |> 
+  as.data.frame() |> 
+  tibble::rownames_to_column("gen") |> 
+  pivot_longer(-gen, names_to = "amb", values_to = "rg")
+
+phm <- 
+ggplot(dfggp, aes(amb, gen, fill = rg))+
+  geom_tile() +
+  scale_fill_viridis_c()
+
+
 ```
 
-
-# adaptabilidade
+# Método WAAS
 ```{r}
-mod <- waas_means(dfge, name, GEN, value)
-plot_scores(mod)
-plot_scores(mod, type = 3)
+
+mod <- waas_means(df_ggplot, AMB, GEN, RGPLA)
+waas_vals <- get_model_data(mod)
+p1 <- plot_scores(mod, type = 2)
+library(patchwork)
+phm + p1
+
+
+plot_waasby(mod)
+```
+
+## Método Wricke
+```{r}
+ecovalencia <- 
+  apply(mat_ef, 1, function(x){
+    sum(x^2)
+  })
+eco <- data.frame(ecovalencia) |> rownames_to_column("GEN")
+stabs <- left_join(waas_vals, eco)
+corr_plot(stabs)
+```
+
+## stabilidade 
+```{r}
+pwaas <- plot_scores(mod, type = 3)
+phm + pwaas
+```
+
+## Performance e stabilidade
+```{r}
 plot_waasby(mod)
 
 ```
-
 
 # Section info
 ```{r}

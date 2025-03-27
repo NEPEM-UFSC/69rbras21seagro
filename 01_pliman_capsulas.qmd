@@ -21,7 +21,17 @@ library(tidyverse)
 library(purrr)
 library(rio)
 set_wd_here("figs/capsulas")
-img <- image_import("5d46b89e-55ba-488d-9943-72fee6d7703b.jpg")
+img <- image_import("5ae8b265-9e47-4b8e-8188-add077c06ceb.jpg")
+res <- 
+  analyze_objects(
+    img,
+    resize = 50,
+    index = "GRAY",
+    marker = "point",
+    marker_col = "red",
+    opening = 10,
+    filter = 2
+  )
 
 ```
 
@@ -40,18 +50,39 @@ pick_count(img)
 
 ```{r}
 res_val <- 
-analyze_objects(
-  pattern = "-",
-  dir_original = "figs/R50/",
-  dir_processed = "figs/proc",
-  index = "GRAY",
-  marker = "point",
-  marker_col = "red",
-  save_image = TRUE,
-  opening = 10,
-  filter = 2
-)
-export(res_val$count, "validacao.xlsx")
+  analyze_objects(
+    pattern = "-",
+    resize = 50,
+    dir_original = "figs/capsulas/",
+    dir_processed = "figs/proc",
+    index = "GRAY",
+    marker = "point",
+    marker_col = "red",
+    save_image = TRUE,
+    opening = 15,
+    filter = 3,
+    parallel = TRUE,
+    workers = 6
+  )
+export(res_val$count, "data/capsulas.xlsx")
+res_graos <- 
+  analyze_objects(
+    pattern = "-",
+    resize = 50,
+    dir_original = "figs/graos/",
+    dir_processed = "figs/proc_graos",
+    index = "GRAY",
+    marker = "point",
+    marker_col = "red",
+    save_image = TRUE,
+    marker_size = 1,
+    show_contour = FALSE,
+    opening = 7,
+    parallel = TRUE,
+    workers = 6
+  )
+export(res_val$count, "data/graos.xlsx")
+export(res_val$results, "data/graos_raw.csv")
 ```
 
 

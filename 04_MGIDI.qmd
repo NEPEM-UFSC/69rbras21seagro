@@ -12,6 +12,7 @@ knitr::opts_chunk$set(cache = FALSE,
 ```
 
 
+
 # Pacotes
 
 ```{r warning=FALSE, message=FALSE}
@@ -21,13 +22,17 @@ library(factoextra)
 library(metan)
 library(pliman)
 dfgens <- import("data/met_2024.xlsx")
-df <- import("data/resimgs.xlsx")
-ggplot(df, aes(x = length)) +
-  geom_histogram() +
-  facet_wrap(~type, scales = "free")
+cap <- 
+  import("data/capsulas.xlsx") |> 
+  rename(UNIQUE_ID = img,
+         NC = objects)
+graos <- 
+  import("data/graos.xlsx") |> 
+    rename(UNIQUE_ID = img,
+         NG = objects)
+dfgen <- reduce(list(dfgens, cap, graos), left_join)
+export(dfgen, "data/dados_labfoto.xlsx")
 
-ggplot(df, aes(length, area)) +
-  geom_point(alpha = 0.5)
 ```
 
 
@@ -53,6 +58,23 @@ df |>
 # juntar
 dffinal <- 
   left_join(dfgens, resultado)
+```
+
+# Média dos genótipos
+```{r}
+dfmedias <- 
+dffinal |> 
+  group_by(GEN) |> 
+  summarise(across(AP:NPT, \(x){(mean(x, na.rm= TRUE))})) |> 
+  remove_rows_na()
+
+# MGIDI para 
+```
+
+
+# MGIDI para seleção dos genótipos
+```{r}
+
 ```
 
 

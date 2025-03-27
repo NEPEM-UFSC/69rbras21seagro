@@ -1,0 +1,222 @@
+---
+  title: ""
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+
+# Pacotes
+
+
+# caracterização ambiental
+
+```{r}
+library(envirotypeR)
+env <- c("FLO2022", "FLO2023", "CN2024")
+lat <- c(-27.681, -27.681, -27.370)
+lon <- c(-48.541, -48.541, -51.204)
+start.day <- c("01/04/2022", "15/04/2023", "20/05/2024")
+end.day <-   c("30/10/2022", "30/10/2023", "15/11/2024")
+
+climate <- 
+  envirotypeR::get_weather(
+    env.id = env,
+    lat = lat,
+    lon = lon,
+    start.day = start.day,
+    end.day = end.day
+  )
+
+
+```
+
+# Gráficos clima
+```{r}
+dfplot <- 
+  climate |> 
+  separate_wider_delim(YYYYMMDD,
+                       names = c("ano", "mes", "dia"),
+                       delim = "-")
+
+
+ggplot(dfplot, aes(T2M_MAX, y = mes, fill = mes)) +
+  facet_wrap(~env, ncol = 1) +
+  geom_density_ridges()
+
+id_var <- names(climate)[7:ncol(climate)]
+EC <- 
+  W_matrix(env.data = climate,
+           env.id = "env",
+           var.id = id_var,
+           by.interval = TRUE,
+           time.window = c(0, 15, 35, 65, 90, 120),
+           QC = TRUE,
+           sd.tol = 3)
+```
+
+
+# Tipagem ambiental
+```{r}
+names.window <- c('1-intial growing','2-leaf expansion I','3-leaf expansion II','4-flowering','5-grain filling', "")
+names_var <- names(env_trials)[11:ncol(env_trials)]
+
+out <- 
+  env_trials |> 
+  env_typing(env.id = "ME",
+             var.id = names_var,
+             by.interval = TRUE,
+             time.window = c(0, 15, 35, 65, 90),
+             names.window = names.window,
+             quantiles = c(.01, .25, .50, .75, .975, .99)) |> 
+  left_join(df_me, by = c("env" =  "ENV")) |> 
+  separate(env.variable,
+           into = c("var", "freq"),
+           sep = "_",
+           extra = "drop")
+
+out_env <- 
+  env_trials |> 
+  env_typing(env.id = "env",
+             var.id = names_var,
+             by.interval = TRUE,
+             time.window = c(0, 15, 35, 65, 90),
+             names.window = names.window,
+             quantiles = c(.01, .25, .50, .75, .975, .99)) |> 
+  left_join(df_me, by = c("env" =  "ENV")) |> 
+  separate(env.variable,
+           into = c("var", "freq"),
+           sep = "_",
+           extra = "drop")
+
+
+```
+
+```{r}
+
+variable <- "VPD"
+# p4 <-
+out |> 
+  subset(var == variable) |> # change the variable here
+  ggplot() + 
+  geom_bar(aes(x=Freq,  y = env, fill = freq), 
+           position = "fill",
+           stat = "identity",
+           width = 1,
+           color = "white",
+           size=.2) +
+  facet_wrap(~interval, ncol = 5) + 
+  scale_y_discrete(expand = c(0,0))+
+  scale_x_continuous(expand = c(0,0))+
+  labs(x = 'Relative frequency',
+       y = "Mega-Environment",
+       fill='Envirotype')+
+  theme(axis.title = element_text(size=12),
+        legend.text = element_text(size=9),
+        strip.text = element_text(size=12),
+        legend.title = element_text(size=12),
+        strip.background = element_rect(fill="gray95",size=1)) +
+  theme(legend.position = "bottom") +
+  ggthemes::scale_fill_stata()
+ggsave("figs/vpd.jpg", width = 12, height = 3)
+
+
+```
+
+
+
+# Interação genótipo ambiente
+
+$$
+y_{ij} = m + g_i + a_j + (ga)_{ij}
+$$
+
+$$
+\hat{g_i} = \bar{g_i} - m  \\
+\hat{a_j} = \bar{a_j} - m  
+$$
+$$
+\hat{(ga)_{ij}} = y_{ij} - m - \hat{g_i} - \hat{a_j} \\
+\hat{(ga)_{ij}} = y_{ij} - \bar{g_i} - \bar{a_j} + m
+$$
+
+
+```{r}
+matga <- dfge |> column_to_rownames("GEN") |> as.matrix()
+m <- mean(matga)
+
+# ESTIMANDO O EFEITO DA INTERAÇÃO
+mat_ef <- matrix(NA, ncol = ncol(matga), nrow = nrow(matga))
+
+for(i in 1:nrow(matga)){
+  egi <- mean(matga[i, ]) - m
+  for(j in 1:ncol(matga)){
+    eaj <- mean(matga[, j]) - m
+    mat_ef[i, j] <- matga[i, j] - m - egi - eaj
+  }
+}
+colnames(mat_ef) <- colnames(matga)
+rownames(mat_ef) <- rownames(matga)
+
+
+# criar um mapa de calor
+dfggp <- 
+mat_ef |> 
+  as.data.frame() |> 
+  tibble::rownames_to_column("gen") |> 
+  pivot_longer(-gen, names_to = "amb", values_to = "rg")
+
+phm <- 
+ggplot(dfggp, aes(amb, gen, fill = rg))+
+  geom_tile() +
+  scale_fill_viridis_c()
+
+
+```
+
+# Método WAAS
+```{r}
+
+mod <- waas_means(df_ggplot, AMB, GEN, RGPLA)
+waas_vals <- get_model_data(mod)
+p1 <- plot_scores(mod, type = 2)
+library(patchwork)
+phm + p1
+
+
+plot_waasby(mod)
+```
+
+## Método Wricke
+```{r}
+ecovalencia <- 
+  apply(mat_ef, 1, function(x){
+    sum(x^2)
+  })
+eco <- data.frame(ecovalencia) |> rownames_to_column("GEN")
+stabs <- left_join(waas_vals, eco)
+corr_plot(stabs)
+```
+
+## stabilidade 
+```{r}
+pwaas <- plot_scores(mod, type = 3)
+phm + pwaas
+```
+
+## Performance e stabilidade
+```{r}
+plot_waasby(mod)
+
+```
+
+# Section info
+```{r}
+sessionInfo()
+```
+
