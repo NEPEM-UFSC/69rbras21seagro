@@ -19,57 +19,28 @@ library(rio)
 library(tidyverse)
 library(factoextra)
 library(metan)
-
-
 dfgens <- 
-  import("data/dados_labfoto.xlsx") |> 
+  import("data/dados_plantas.xlsx") |> 
+  mutate(CP = AP - AC) |> 
   group_by(GEN) |> 
-  summarise(across(AP:NG, \(x){mean(x, na.rm = TRUE)})) |> 
-  select(-c(NPLA, NPT)) |> 
-  remove_rows_na()
-
-ggplot(dfgens, aes(MG)) +
-  geom_histogram(bins = 10) +
-  geom_vline(aes(xintercept = mean(MG)),
-             color = "red") +
-  scale_y_continuous(breaks = 0:9)
-
-
-
-quali <- import("data/qualidade.xlsx")
-
-dfgens <- inner_join(dfgens, quali)
-export(dfgens, "selecao.xlsx")
-
-pca <- FactoMineR::PCA(dfgens)
-fviz_pca_biplot(pca, repel = TRUE)
+  summarise(across(AP:CP, \(x){mean(x, na.rm = TRUE)})) |> 
+  select(-AC)
 ```
 
 
-# Inspecionar
+# PCA
 ```{r}
-df2 <- df |> arrange(desc(length))
-df |> 
-  slice_max(length, n = 1)
+dfpca <- 
+  dfgens |> 
+  column_to_rownames("GEN") |> 
+  as.matrix()
+
+modpca <- PCA(dfpca)
+  fviz_pca_biplot(modpca,
+                  repel = TRUE) +
+  theme_stata()
+
 ```
-
-
-# Contagem
-```{r}
-resultado <- 
-df |> 
-  group_by(type, img) |> 
-  summarise(
-    n = n()
-  ) |> 
-  rename(UNIQUE_ID = img) |> 
-  pivot_wider(names_from = type, values_from = n)
-
-# juntar
-dffinal <- 
-  left_join(dfgens, resultado)
-```
-
 
 # Section info
 ```{r}

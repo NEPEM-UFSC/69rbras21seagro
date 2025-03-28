@@ -20,40 +20,131 @@ library(rio)
 library(tidyverse)
 library(factoextra)
 library(metan)
-library(pliman)
-dfgens <- import("data/met_2024.xlsx")
-cap <- 
-  import("data/capsulas.xlsx") |> 
-  rename(UNIQUE_ID = img,
-         NC = objects)
-graos <- 
-  import("data/graos.xlsx") |> 
-    rename(UNIQUE_ID = img,
-         NG = objects)
-dfgen <- reduce(list(dfgens, cap, graos), left_join)
-export(dfgen, "data/dados_labfoto.xlsx")
-
+library(ggthemes)
+library(factoextra)
+library(FactoMineR)
+library(patchwork)
 ```
-
-
 
 
 # Média dos genótipos
 ```{r}
-dfmedias <- 
-dfgen |> 
+dfgens <- 
+  import("data/dados_plantas.xlsx") |> 
+  mutate(CP = AP - AC) |> 
   group_by(GEN) |> 
-  summarise(across(AP:NPT, \(x){(mean(x, na.rm= TRUE))})) |> 
-  remove_rows_na()
+  summarise(across(AP:CP, \(x){mean(x, na.rm = TRUE)})) |> 
+  select(-AC)
+```
 
-# MGIDI para 
+
+# Network de correlações
+```{r}
+corr <- corr_coef(dfgens)
+plot(corr)
+gc <- network_plot(corr)
+
 ```
 
 
 # MGIDI para seleção dos genótipos
+## Sem pesos
 ```{r}
+ideotipo <- c("70, h, h, 8, h, h, h, h, 30")
+# sem pesos
+mod_mgidi <- 
+  mgidi(
+    dfgens,
+    ideotype = ideotipo,
+    SI = 25
+  )
+pmgidi_sp <- plot(mod_mgidi)
+```
+
+## Com pesos
+```{r}
+mod_mgidi_pesos <- 
+  mgidi(
+    dfgens,
+    ideotype = ideotipo,
+    weights = c(1, 1, 5, 1, 1, 1, 1, 1, 1),
+    SI = 25
+  )
+
+pmgidi_cp <- plot(mod_mgidi_pesos)
+pmgidi_sp + pmgidi_cp +
+  plot_layout(guides = "collect") & theme(legend.position = "bottom")
+
+ggsave("figs/mgidi.jpg",
+       width = 14,
+       height = 6)
 
 ```
+
+## Gen comuns
+```{r}
+gensp <- sel_gen(mod_mgidi)
+gencp <- sel_gen(mod_mgidi_pesos)
+
+venn_plot(gencp,
+          gensp, 
+          show_elements = TRUE,
+          split_each  =3, 
+          split_labels = TRUE,
+          names = c("Com peso", "Sem Peso")) 
+
+ggsave("figs/sel_gen_mgidi.jpg",
+       width = 8,
+       height = 6)
+
+```
+
+# Ganhos de seleção
+```{r}
+gcp <- get_model_data(mod_mgidi_pesos) |> mutate(peso = "Com peso")
+gsp <- get_model_data(mod_mgidi) |> mutate(peso = "Sem peso")
+
+ganhos <- bind_rows(gcp, gsp)
+ggplot(ganhos, aes(VAR, SDperc)) +
+  geom_col(aes(fill = peso), position = position_dodge()) +
+  labs(x = "Variável", y = "Diferencial de seleçao (%)") +
+  theme_stata()
+ggsave("figs/ganhos_mgidi.jpg",
+       width = 7,
+       height = 5)
+
+```
+
+# Gráfico de médias
+```{r}
+tipos <- import("data/tipos.xlsx")
+
+dfggplot <- 
+  dfgens |> 
+  left_join(tipos) |> 
+  bind_rows(dfgens |> slice_tail(n = 1) |> 
+              mutate(TIPO = "DOURADA")) |> 
+  mutate(check = ifelse(GEN %in% "ST_PIONEIRA", "Check", "Genótipos NEPEM")) 
+
+
+
+ggplot(dfggplot, aes(reorder(GEN, -MG), MG)) +
+  geom_col(aes(fill = check)) +
+  facet_wrap(~TIPO, scale = "free_x") +
+  theme_stata() +
+  theme(panel.grid.major.x = element_line()) +
+  geom_hline(yintercept = 4.1675, color = "red", linetype = 2) +
+  coord_radial(start = -(pi / 2), end = (pi / 2)) +
+  labs(x = "",
+       y = "",
+       fill = "")
+
+ggsave("figs/velocimetro.jpg",
+       width = 16,
+       height = 6)
+
+```
+
 
 
 # Section info
