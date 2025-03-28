@@ -36,34 +36,12 @@ export(dfgen, "data/dados_labfoto.xlsx")
 ```
 
 
-# Inspecionar
-```{r}
-df2 <- df |> arrange(desc(length))
-df |> 
-  slice_max(length, n = 1)
-```
 
-
-# Contagem
-```{r}
-resultado <- 
-df |> 
-  group_by(type, img) |> 
-  summarise(
-    n = n()
-  ) |> 
-  rename(UNIQUE_ID = img) |> 
-  pivot_wider(names_from = type, values_from = n)
-
-# juntar
-dffinal <- 
-  left_join(dfgens, resultado)
-```
 
 # Média dos genótipos
 ```{r}
 dfmedias <- 
-dffinal |> 
+dfgen |> 
   group_by(GEN) |> 
   summarise(across(AP:NPT, \(x){(mean(x, na.rm= TRUE))})) |> 
   remove_rows_na()

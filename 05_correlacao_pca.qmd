@@ -26,8 +26,20 @@ dfgens <-
   group_by(GEN) |> 
   summarise(across(AP:NG, \(x){mean(x, na.rm = TRUE)})) |> 
   select(-c(NPLA, NPT)) |> 
-  remove_rows_na() |> 
-  column_to_rownames("GEN")
+  remove_rows_na()
+
+ggplot(dfgens, aes(MG)) +
+  geom_histogram(bins = 10) +
+  geom_vline(aes(xintercept = mean(MG)),
+             color = "red") +
+  scale_y_continuous(breaks = 0:9)
+
+
+
+quali <- import("data/qualidade.xlsx")
+
+dfgens <- inner_join(dfgens, quali)
+export(dfgens, "selecao.xlsx")
 
 pca <- FactoMineR::PCA(dfgens)
 fviz_pca_biplot(pca, repel = TRUE)

@@ -81,14 +81,16 @@ res_graos <-
     parallel = TRUE,
     workers = 6
   )
-export(res_val$count, "data/graos.xlsx")
-export(res_val$results, "data/graos_raw.csv")
+export(res_graos$count, "data/graos.xlsx")
+export(res_graos$results, "data/graos_raw.csv")
 ```
 
 
 
 # Cenário 100%
 ```{r}
+set_wd_here()
+
 # CENÁRIO COM IMAGENS ORIGINAIS
 cenarios <- expand_grid(open = c(0, 25),
                         filt = c(0, 5))
