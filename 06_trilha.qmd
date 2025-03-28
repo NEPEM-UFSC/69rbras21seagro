@@ -17,17 +17,18 @@ knitr::opts_chunk$set(cache = FALSE,
 ```{r warning=FALSE, message=FALSE}
 library(rio)
 library(tidyverse)
-library(factoextra)
 library(metan)
-library(pliman)
-dfgens <- import("data/met_2024.xlsx")
-df <- import("data/resimgs.csv")
-ggplot(df, aes(x = length)) +
-  geom_histogram() +
-  facet_wrap(~type, scales = "free")
+dfgens <- import("data/dados_labfoto.xlsx")
+ggplot(dfgens, aes(NR, NG)) +
+  geom_point()
+medias <- 
+  dfgens |> 
+  group_by(GEN) |> 
+  summarise(across(AP:NG, \(x){mean(x, na.rm = TRUE)})) |> 
+  remove_rows_na()
 
-ggplot(df, aes(length, area)) +
-  geom_point(alpha = 0.5)
+CD <- colindiag(medias, AP:NG)
+
 ```
 
 
