@@ -17,43 +17,66 @@ knitr::opts_chunk$set(cache = FALSE,
 ```{r warning=FALSE, message=FALSE}
 library(rio)
 library(tidyverse)
-library(factoextra)
 library(metan)
-library(pliman)
-dfgens <- import("data/met_2024.xlsx")
-df <- import("data/resimgs.csv")
-ggplot(df, aes(x = length)) +
-  geom_histogram() +
-  facet_wrap(~type, scales = "free")
+planta <- 
+  import("data/dados_labfoto.xlsx") |> 
+  select(UNIQUE_ID, GEN, PLANTA:NG, -NPT) |> 
+  remove_rows_na() |> 
+  mutate(MMG = MG / NG * 1000,
+         ICC = MG / MC)
 
-ggplot(df, aes(length, area)) +
-  geom_point(alpha = 0.5)
-```
+ggplot(planta, aes(NG, MG)) +
+  geom_point()
+# bindar as informações dos grãos
 
-
-# Inspecionar
-```{r}
-df2 <- df |> arrange(desc(length))
-df |> 
-  slice_max(length, n = 1)
-```
-
-
-# Contagem
-```{r}
-resultado <- 
-df |> 
-  group_by(type, img) |> 
+graos <- 
+  import("data/graos_raw.csv") |> 
+  group_by(img) |> 
   summarise(
-    n = n()
+    ELGRA = mean(elongation)
   ) |> 
-  rename(UNIQUE_ID = img) |> 
-  pivot_wider(names_from = type, values_from = n)
+  rename(UNIQUE_ID = img)
 
-# juntar
-dffinal <- 
-  left_join(dfgens, resultado)
+capsulas <- 
+  import("data/capsulas_raw.csv") |> 
+  group_by(img) |> 
+  summarise(
+    ELCAP = mean(elongation)
+  ) |> 
+  rename(UNIQUE_ID = img)
+
+dfplantas <- reduce(list(planta, graos, capsulas), left_join)
+
+dfmedias <- 
+  dfplantas |> 
+  group_by(GEN) |> 
+  summarise(across(where(is.numeric), \(x){mean(x, na.rm = TRUE)})) |> 
+  remove_rows_na()
+
 ```
+
+# Diagnóstico da multicolinearidade
+```{r}
+colin_plantas <- colindiag(dfplantas, -MG)
+colin_medias <- colindiag(dfmedias, - MG)
+
+coldiag <- 
+  colin_plantas$VIF |> rename(VIF_PLANTA = VIF) |> 
+  left_join(colin_medias$VIF |> rename(VIF_MEDIA = VIF))
+
+```
+
+
+# Trilha
+```{r}
+trilha1 <- path_coeff(dfplantas, 
+                      resp = MG,
+                      pred = everything())
+plot(trilha1)
+
+```
+
+
 
 
 # Section info

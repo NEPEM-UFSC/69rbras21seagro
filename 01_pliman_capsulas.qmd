@@ -58,13 +58,14 @@ res_val <-
     index = "GRAY",
     marker = "point",
     marker_col = "red",
-    save_image = TRUE,
+    # save_image = TRUE,
     opening = 15,
     filter = 3,
     parallel = TRUE,
     workers = 6
   )
 export(res_val$count, "data/capsulas.xlsx")
+export(res_val$results, "data/capsulas_raw.csv")
 res_graos <- 
   analyze_objects(
     pattern = "-",
