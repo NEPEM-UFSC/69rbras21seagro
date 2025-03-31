@@ -1,5 +1,5 @@
 ---
-title: "04: MGIDI para seleção de genótipos de Linum usitatissimum no melhoramento genético vegetal"
+title: "04: Trilha"
 ---
 
 ```{r global_options, include = FALSE}
@@ -18,6 +18,7 @@ knitr::opts_chunk$set(cache = FALSE,
 library(rio)
 library(tidyverse)
 library(metan)
+
 planta <- 
   import("data/dados_labfoto.xlsx") |> 
   select(UNIQUE_ID, GEN, PLANTA:NG, -NPT) |> 
@@ -56,6 +57,7 @@ dfmedias <-
 
 ```
 
+
 # Diagnóstico da multicolinearidade
 ```{r}
 colin_plantas <- colindiag(dfplantas, -MG)
@@ -63,21 +65,65 @@ colin_medias <- colindiag(dfmedias, - MG)
 
 coldiag <- 
   colin_plantas$VIF |> rename(VIF_PLANTA = VIF) |> 
-  left_join(colin_medias$VIF |> rename(VIF_MEDIA = VIF))
+  left_join(
+    colin_medias$VIF |> rename(VIF_MEDIA = VIF)
+  )
 
 ```
 
 
 # Trilha
-```{r}
-trilha1 <- path_coeff(dfplantas, 
-                      resp = MG,
-                      pred = everything())
-plot(trilha1)
+## Sem nenhuma correção
 
+```{r}
+trilha1_planta <- path_coeff(dfplantas, 
+                             resp = MG,
+                             pred = everything())
+plot(trilha1_planta)
+
+
+trilha1_media <- path_coeff(dfmedias, 
+                            resp = MG,
+                            pred = everything())
+
+plot(trilha1_media)
+```
+
+## Estimando os coeficientes
+```{r}
+cor.x <- as.matrix(trilha1_planta$Corr.x)
+cor.y <- as.matrix(trilha1_planta$Corr.y)
+direto <- solve(cor.x %*% t(cor.x)) %*% cor.x %*% cor.y
+n <- ncol(cor.x)
+Coeff <- data.frame(cor.x)
+for (i in 1:n) {
+  for (j in 1:n) {
+    Coeff[i, j] <- direto[j] * cor.x[i, j]
+  }
+}
+Coeff
 ```
 
 
+## Seleção de variáveis
+```{r}
+trilha2_planta <- 
+  path_coeff(dfplantas, 
+             resp = MG,
+             pred = everything(),
+             brutstep = TRUE)
+
+plot(trilha2_planta$Models$Model_1)
+
+
+trilha2_media <- 
+  path_coeff(dfmedias, 
+             resp = MG,
+             pred = everything(),
+             brutstep = TRUE)
+
+plot(trilha2_planta$Models$Model_1)
+```
 
 
 # Section info

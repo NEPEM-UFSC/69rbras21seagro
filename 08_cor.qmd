@@ -100,8 +100,15 @@ dfpca <-
 
 cord <- corr_coef(dfpca$data[[1]])
 corm <- corr_coef(dfpca$data[[2]])
-plot(cord)
-plot(corm)
+a <- plot(cord, reorder = FALSE)
+b <- plot(corm, reorder = FALSE)
+
+a + b +
+  plot_annotation(tag_levels = list(c("Dourada", "Marrom")))
+
+ggsave("figs/correlacao_cor.jpg",
+       width = 12,
+       height = 6)
 
 pcad <- PCA(dfpca$data[[1]] |> column_to_rownames("GEN"), graph = FALSE)
 pcam <- PCA(dfpca$data[[2]] |> column_to_rownames("GEN"), graph = FALSE)

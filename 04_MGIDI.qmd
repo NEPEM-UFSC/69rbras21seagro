@@ -12,7 +12,6 @@ knitr::opts_chunk$set(cache = FALSE,
 ```
 
 
-
 # Pacotes
 
 ```{r warning=FALSE, message=FALSE}
