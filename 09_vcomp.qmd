@@ -1,0 +1,208 @@
+---
+  title: "Dissimilaridade genética e componentes de variância em genótipos de linho dourado e marrom"
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+
+# Pacotes
+# caracterização ambiental
+
+```{r}
+library(rio)
+library(tidyverse)
+library(metan)
+library(ggthemes)
+library(factoextra)
+library(lme4)
+library(lmerTest)
+df <-  import("data/dados_plantas.xlsx")
+
+```
+
+
+
+
+# Boxplot
+
+```{r}
+df <- 
+  df |> 
+  mutate(GEN = str_remove(GEN, "D|M"))
+ggplot(df, aes(MG, GEN, fill = TIPO)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("gold", "brown")) +
+  theme_stata() +
+  theme(axis.text.y = element_text(angle = 0))+
+  facet_wrap(~TIPO, scales = "free_y") +
+  labs(x = "Massa de grãos por planta (g)",
+       y = "Genótipo",
+       fill = "")
+
+ggsave("figs/boxplot_2024.jpg",
+       width = 12,
+       height = 5)
+```
+
+
+# Variância entre e dentro
+## Modelo
+```{r}
+library(lme4)
+library(dplyr)
+library(lmerTest)
+library(dplyr)
+
+
+vcomp <- function(data, traits, gen_col = "GEN",
+                  plant_col = "PLANTA",
+                  block_col = "BLOCK", check_col = "CHECKS") {
+  
+  data$GEN_PLANTA <- interaction(data[[gen_col]], data[[plant_col]], drop = TRUE)
+  resultados <- lapply(traits, function(trait) {
+    dados_filtrados <- data[!is.na(data[[trait]]), ]
+    
+    formula_completa <- as.formula(paste(trait, "~ factor(", block_col, ") + (1|", gen_col, ") + (1|GEN_PLANTA)"))
+    modelo <- lmer(formula_completa, data = dados_filtrados, REML = TRUE)
+    vc <- as.data.frame(VarCorr(modelo))
+    var_gen <- vc[vc$grp == gen_col, "vcov"]
+    var_res <- vc[vc$grp == "Residual", "vcov"]
+    var_planta <- vc[vc$grp == "GEN_PLANTA", "vcov"]
+    
+    n <- mean(table(dados_filtrados[dados_filtrados[[check_col]] == 0, gen_col]))
+    
+    H2 <- var_gen / (var_gen + (var_planta + var_res) / n)
+    
+    ran <- tryCatch({
+      ranova(modelo) |> as.data.frame() |> dplyr::select(Chisq = 4, p = 6) |> drop_na()
+    }, error = function(e) data.frame(Chisq = NA, p = NA))
+    
+    resultado <- data.frame(
+      parametro = c("var_gen", "var_planta", "var_res", "n_media", "H2", "LRT", "p_genotipo"),
+      valor = c(var_gen, var_planta, var_res, n, H2, ran$Chisq[1], ran$p[1])
+    )
+    names(resultado)[2] <- trait
+    return(resultado)
+  })
+  
+  # Juntar os resultados por parâmetro
+  df_final <- 
+    resultados %>%
+    reduce(full_join, by = "parametro")
+  return(df_final)
+}
+
+variaveis <- c("AP", "AC", "CP", "MC", "MG", "MMG", "ICC")
+vals <- vcomp(df, variaveis)
+```
+
+## Gráficos
+```{r}
+df_vcomp <- 
+  vals |> 
+  slice(1:3) |>
+  pivot_longer(-parametro) |> 
+  mutate(
+    value = case_when(
+      parametro == "var_planta" ~ value  / 5,
+      parametro == "var_res" ~ value  / 5,
+      TRUE ~value
+    )
+  )
+
+
+ggplot(df_vcomp, aes(name, value))+
+  geom_col(aes(fill = parametro), position = "fill",
+           color = "black") +
+  theme_stata(base_size = 14) +
+  scale_y_continuous(expand = expansion(0)) +
+  scale_x_discrete(expand = expansion(0)) +
+  theme(axis.text.y = element_text(angle = 0)) +
+  scale_fill_manual(
+    values = c("var_gen" = "#F8766D", "var_planta" = "#00BA38", "var_res" = "#619CFF"),
+    labels = c(
+      "var_gen" = expression(sigma[g]^2),
+      "var_planta" = expression(sigma[g(p)]^2),
+      "var_res" = expression(sigma[e]^2)
+    )
+  ) +
+  labs(x = "Caracteres",
+       y = "Proporção da variância fenotípica",
+       fill = "")
+```
+
+```{r}
+library(lme4)
+
+
+```
+
+
+## Distancia e Agrupamento
+
+```{r}
+
+dfmedias <- 
+  df |> 
+  group_by(TIPO, GEN) |> 
+  summarise(across(AP:ICC, \(x){mean(x, na.rm = TRUE)}),
+            .groups = "drop")
+
+dfdist <- 
+  dfmedias |> 
+  slice(1:2) |> 
+  select(GEN, AP:ICC)
+
+ggplot(dfdist, aes(AP, AC)) +
+  geom_point() +
+  geom_hline(yintercept = 26.25) +
+  geom_vline(xintercept = 67.25)
+
+# a2 = b2 + c2
+# a^2 = 100
+# a = raiz(100)
+
+mat <- dfdist |> column_to_rownames("GEN") |> as.matrix()
+mat[1, 1] <- 107
+# DISTANCIA DO G1 PARA G104 considerando AP e AC
+sqrt(sum((mat[1, ] - mat[2, ])^2))
+
+
+
+```
+
+
+# Distância euclidiana
+## Dourada
+```{r}
+mat <- 
+  dfmedias |> 
+  group_by(TIPO) |> 
+  nest()
+
+matd <- mat$data[[1]] |> column_to_rownames("GEN")
+ddourada <- clustering(matd)
+min(ddourada)
+max(ddourada)
+
+
+
+fviz_dend(ddourada$hc,
+          k = 3,
+          type = "phylogenic") 
+
+```
+
+
+
+# Section info
+```{r}
+sessionInfo()
+```
+

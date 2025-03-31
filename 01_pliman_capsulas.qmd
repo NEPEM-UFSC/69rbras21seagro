@@ -21,7 +21,7 @@ library(tidyverse)
 library(purrr)
 library(rio)
 set_wd_here("figs/capsulas")
-img <- image_import("5ae8b265-9e47-4b8e-8188-add077c06ceb.jpg")
+img <- image_import("a1426e78-6bc2-4ce4-9d58-0777384c066d.jpg")
 res <- 
   analyze_objects(
     img,
@@ -29,8 +29,8 @@ res <-
     index = "GRAY",
     marker = "point",
     marker_col = "red",
-    opening = 10,
-    filter = 2
+    opening = 15,
+    filter = 3
   )
 
 ```
@@ -178,6 +178,199 @@ export(final, "dados_cenarios.xlsx")
 
 
 
+# Concordância
+
+
+$$
+\rho_c = \frac{2 \cdot \text{Cov}(x, y)}{\text{Var}(x) + \text{Var}(y) + (\bar{x} - \bar{y})^2}
+
+$$
+
+A Concordância de Lin ou Coeficiente de Correlação de Concordância (CCC) é uma métrica que avalia simultaneamente a precisão e a acurácia entre duas variáveis contínuas. Ela é frequentemente utilizada para medir o grau de concordância entre dois métodos de mensuração ou entre observações pareadas.
+
+Enquanto o coeficiente de correlação de Pearson r mede apenas a precisão (a força da associação linear), o CCC incorpora também a acurácia (quão próximo os dados estão da linha de identidade.
+
+
+```{r}
+
+df <- 
+  import("data/acuracia_capsulas.xlsx") |> 
+  as_factor(filter:resolucao) %>% 
+  mutate(filter = paste0("filter = ", filter),
+         opening = paste0("opening = ", opening))
+
+ccc_lin <- function(data, real, predito) {
+  # extrai os valores para um vetor
+  if(is.grouped_df(data)){
+    data %>% 
+      group_modify(~ccc_lin(.x, {{real}}, {{predito}})) %>% 
+      ungroup()
+  } else{
+    x <- data |> select({{real}}) |> pull()
+    y <- data |> select({{predito}}) |> pull()
+    # Estatísticas básicas
+    mean_x <- mean(x)
+    mean_y <- mean(y)
+    var_x  <- var(x)
+    var_y  <- var(y)
+    cov_xy <- cov(x, y)
+    
+    # Correlação de Pearson
+    r <- cov_xy / (sqrt(var_x) * sqrt(var_y))
+    # Erro quadrático médio
+    rmse <- sqrt(mean((x - y)^2))
+    # Concordância de Lin
+    ccc <- (2 * cov_xy) / (var_x + var_y + (mean_x - mean_y)^2)
+    # retorna
+    return(data.frame(r = r, rmse = rmse, ccc = ccc))
+  }
+  
+}
+
+# Agora computa as métricas (vou computar elas depois de novo para colocar nos gráficos)
+df |> 
+  group_by(filter, opening, resolucao) %>%
+  ccc_lin(real, predito) %>%
+  mutate(rho = paste0("rho[c]:~", round(ccc, 4)),
+         rmse = paste0("RMSE:~", round(rmse, 4)),
+         r = paste0("r:~~~", round(r, 4)))
+
+```
+
+
+
+# Gráficos
+```{r}
+# cria uma nova coluna em cada resolução contendo os valores
+dfvalid <- 
+  df |> 
+  group_by(resolucao) %>% 
+  nest() |> 
+  mutate(ccc = map(data, function(x){
+    x |> 
+      group_by(filter, opening) %>%
+      ccc_lin(real, predito) |> 
+      mutate(
+        ccc = paste0("rho[c]:~", round(ccc, 3)),
+        rmse = paste0("RMSE:~", round(rmse, 3)),
+        r = paste0("r:~~~", round(r, 3)))
+    
+  }))
+
+# 100# 
+ggplot(dfvalid$data[[1]], aes(predito, real)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  facet_grid(filter ~ opening) +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  geom_text(aes(label=ccc),
+            x = 5,
+            y = 360,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[1]],
+            parse = TRUE) +
+  geom_text(aes(label=rmse),
+            x = 5,
+            y = 340,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[1]],s
+            parse = TRUE) +
+  geom_text(aes(label=r),
+            x = 5,
+            y = 320,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[1]],
+            parse = TRUE) +
+  theme_stata() +
+  coord_equal() +
+  xlim(0, 400) +
+  ylim(0, 400) +
+  theme(panel.grid.major.y  = element_blank()) +
+  labs(x = "Valor predito",
+       y = "Valor observado")
+
+ggsave("figs/plot_acuracia_100.jpg",
+       width = 6,
+       height = 6)
+
+## 50%
+ggplot(dfvalid$data[[2]], aes(predito, real)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  facet_grid(filter ~ opening) +
+  geom_text(aes(label=ccc),
+            x = 5,
+            y = 360,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[2]],
+            parse = TRUE) +
+  geom_text(aes(label=rmse),
+            x = 5,
+            y = 340,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[2]],
+            parse = TRUE) +
+  geom_text(aes(label=r),
+            x = 5,
+            y = 320,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[2]],
+            parse = TRUE) +
+  theme_stata() +
+  coord_equal() +
+  xlim(0, 400) +
+  ylim(0, 400) +
+  theme(panel.grid.major.y  = element_blank()) +
+  labs(x = "Valor predito",
+       y = "Valor observado")
+
+ggsave("figs/plot_acuracia_50.jpg",
+       width = 6,
+       height = 6)
+
+# 25%
+ggplot(dfvalid$data[[3]], aes(predito, real)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  facet_grid(filter ~ opening) +
+  geom_text(aes(label=ccc),
+            x = 5,
+            y = 360,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[3]],
+            parse = TRUE) +
+  geom_text(aes(label=rmse),
+            x = 5,
+            y = 340,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[3]],
+            parse = TRUE) +
+  geom_text(aes(label=r),
+            x = 5,
+            y = 320,
+            hjust = 0,
+            size = 3,
+            data = dfvalid$ccc[[3]],
+            parse = TRUE) +
+  theme_stata() +
+  coord_equal() +
+  xlim(0, 400) +
+  ylim(0, 400) +
+  theme(panel.grid.major.y  = element_blank()) +
+  labs(x = "Valor predito",
+       y = "Valor observado") 
+ggsave("figs/plot_acuracia_25.jpg",
+       width = 6,
+       height = 6)
+
+```
 
 # Section info
 ```{r}

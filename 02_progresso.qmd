@@ -27,7 +27,7 @@ df <- import_list("data/progresso.xlsx")
 df$`2024` <- 
   df$`2024` |> 
   filter(RGPLA > 1.5)
-  
+
 junto <- 
   bind_rows(df) |> 
   mutate(ANO = as.factor(ANO))
@@ -39,8 +39,24 @@ dfmean <-
   mutate(ANO = as.factor(ANO))
 
 
+```
+
+
+# Estatística descritiva
+```{r}
+junto  |> 
+  group_by(ANO) |> 
+  summarise(
+    n = n(),
+    min = min(RGPLA, na.rm = TRUE),
+    max = max(RGPLA, na.rm = TRUE),
+    media = mean(RGPLA, na.rm = TRUE),
+    dp = sd(RGPLA, na.rm = TRUE),
+    cv = dp / media * 100
+  )
 
 ```
+
 
 # Teste t
 ```{r}
@@ -50,17 +66,16 @@ df_n <-
   group_by(ANO) |> 
   summarise(n = n(), .groups = 'drop')
 
-
-
 box <-
   ggplot(junto, aes(x = ANO, y = RGPLA))+
-  geom_boxplot(aes(fill = ANO)) +
-  geom_jitter(width = 0.2, alpha =0.15) +
+  geom_boxplot(aes(fill = ANO),
+               outliers = FALSE) +
+  geom_jitter(width = 0.2, alpha = 0.15) +
   stat_summary(fun = mean,
                geom = "point",
                shape = 5,
                fill = "red",
-               size = 3,
+               size = 2,
                stroke = 1) +
   stat_compare_means(method = "t.test",
                      method.args = list(var.equal = TRUE),
@@ -91,8 +106,9 @@ dfmean <-
   group_by(ANO) |>
   summarise(media = mean(RGPLA, na.rm = TRUE))
 
+dfmean
 dens <-
-ggplot(junto, aes(x = RGPLA, y = ANO, group = ANO, fill = ANO)) +
+  ggplot(junto, aes(x = RGPLA, y = ANO, group = ANO, fill = ANO)) +
   geom_density_ridges(alpha = 0.7) +
   xlim(c(0, 10)) +
   geom_vline(data = dfmean,
@@ -111,8 +127,14 @@ box /dens +
   plot_layout(guides = "collect",
               heights = c(0.3, 0.7)) & 
   theme(legend.position = "bottom")
-  
+
+ggsave("figs/ganho.jpg",
+       width = 10, 
+       height = 6)
+
 ```
+
+
 
 
 # Rendimento de Grãos

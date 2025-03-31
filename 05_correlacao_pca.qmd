@@ -25,22 +25,99 @@ dfgens <-
   group_by(GEN) |> 
   summarise(across(AP:CP, \(x){mean(x, na.rm = TRUE)})) |> 
   select(-AC)
+tipos <- import("data/tipos.xlsx")
+
+dfggplot <- 
+  dfgens |> 
+  left_join(tipos) 
+
+
+
 ```
+
+# Correlação
+```{r}
+corrs <- 
+dfggplot |> 
+  group_by(TIPO) |> 
+  nest() |> 
+  mutate(corr = map(data, function(x){
+    corr_coef(x)
+  })) 
+
+# numero de genótipos em cada 
+map(corrs$data, function(x){
+    summarise(x, n())
+  })|> 
+  list_rbind() |> 
+  mutate(tipo = c("dourada", "Marrom"))
+
+
+library(corrplot)
+lower <- make_lower_tri(corrs$corr[[1]]$cor)
+upper <- make_upper_tri(corrs$corr[[2]]$cor)
+lower[is.na(lower)] <- upper[is.na(lower)]
+diag(lower) <- 1
+
+# PVAL
+lowerpv <- make_lower_tri(corrs$corr[[1]]$pval)
+upperpv <- make_upper_tri(corrs$corr[[2]]$pval)
+lowerpv[is.na(lowerpv)] <- upperpv[is.na(lowerpv)]
+diag(lowerpv) <- 1
+
+
+jpeg("figs/correlacao.jpg", width = 6, height = 6, units = "in", res = 600)
+corrplot(lower,
+         method = "number",
+         diag = FALSE)
+dev.off()
+
+
+cor_d <- tidy_sym(corrs$corr[[1]]$cor, keep_diag = FALSE)
+cor_m <- tidy_sym(corrs$corr[[2]]$cor, keep_diag = FALSE) |> rename(value_m = value)
+
+combs <- 
+  left_join(cor_d, cor_m) |> 
+  mutate(diff = value_m - value)
+```
+
+# Exploração
+```{r}
+ggplot(dfggplot, aes(CP, NC)) +
+  geom_point(aes(color = TIPO)) +
+  geom_smooth(aes(color = TIPO), method = "lm",
+              se = FALSE)
+
+dfm <-
+  dfggplot |> 
+  filter(TIPO =="MARROM")
+ggplot(dfm, aes(CP, NC)) +
+  geom_point(aes(color = TIPO)) +
+  geom_smooth(aes(color = TIPO), method = "lm",
+              se = FALSE)
+```
+
 
 
 # PCA
 ```{r}
 dfpca <- 
-  dfgens |> 
-  column_to_rownames("GEN") |> 
-  as.matrix()
+  dfggplot |> 
+  group_by(TIPO) |> 
+  nest()
+pcad <- PCA(dfpca$data[[1]] |> column_to_rownames("GEN"), graph = FALSE)
+pcam <- PCA(dfpca$data[[2]] |> column_to_rownames("GEN"), graph = FALSE)
 
-modpca <- PCA(dfpca)
-  fviz_pca_biplot(modpca,
-                  repel = TRUE) +
-  theme_stata()
+bip_d <- fviz_pca_biplot(pcad, repel = TRUE) + theme_stata()
+bip_m <- fviz_pca_biplot(pcam, repel = TRUE) + theme_stata()
+bip_d + bip_m +
+  plot_annotation(tag_levels = list(c("Dourada", "Marrom")))
 
+ggsave("figs/biplot_pca.jpg",
+       width = 15,
+       height = 6)
 ```
+
 
 # Section info
 ```{r}

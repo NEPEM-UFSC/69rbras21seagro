@@ -31,8 +31,7 @@ dfge <-
 
 df_ggplot <- 
   dfge |> 
-  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA") |> 
-  filter(GEN %in% c("G1", "G11"))
+  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA")
 
 ggplot(df_ggplot, aes(x = AMB, y = RGPLA, fill = GEN)) +
   geom_col(position = position_dodge())
@@ -81,49 +80,79 @@ mat_ef |>
   tibble::rownames_to_column("gen") |> 
   pivot_longer(-gen, names_to = "amb", values_to = "rg")
 
-phm <- 
+# phm <- 
 ggplot(dfggp, aes(amb, gen, fill = rg))+
   geom_tile() +
-  scale_fill_viridis_c()
+  scale_fill_gradient2(low = "red", high = "blue") +
+  scale_x_discrete(expand = expansion(0)) +
+  scale_y_discrete(expand = expansion(0)) +
+  labs(x = "Ano de cultivo",
+       y = "Genótipo")
+
+ggsave("figs/heatmap.jpg",
+       width = 4,
+       height = 6)
 
 
 ```
 
-# Método WAAS
+# Adaptabilidade
 ```{r}
-
 mod <- waas_means(df_ggplot, AMB, GEN, RGPLA)
-waas_vals <- get_model_data(mod)
-p1 <- plot_scores(mod, type = 2)
-library(patchwork)
-phm + p1
+p1 <- 
+  plot_scores(mod, type = 2) + 
+  theme_stata() +
+  coord_equal()
+p2 <- 
+  plot_scores(mod, type = 3) +
+    theme_stata() + 
+    labs(x = "Rendimento de grãos por planta (g)",
+       y = "Média ponderada dos escores absolutos (WAAS)")
 
 
-plot_waasby(mod)
+
+
+p1 + p2 + 
+  plot_layout(guides = "collect") & theme(legend.position = "bottom")
+
+ggsave("figs/waas_biplot.jpg",
+       width = 13,
+       height = 6)
 ```
 
+# Estabilidade
 ## Método Wricke
+
+WRICKE, G. Zur Berechnung der Ökovalenz bei Sommerweizen und Hafer. Zeitschrift für Pflanzenzüchtung, v.52, p.127-138, 1965.
+
 ```{r}
 ecovalencia <- 
   apply(mat_ef, 1, function(x){
     sum(x^2)
   })
 eco <- data.frame(ecovalencia) |> rownames_to_column("GEN")
+
+
+```
+
+
+## Método WAAS
+OLIVOTO, T. et al. Mean Performance and Stability in Multi‐Environment Trials I: Combining Features of AMMI and BLUP Techniques. Agronomy Journal, v. 111, n. 6, p. 2949–2960, 2019. 
+
+
+```{r}
+waas_vals <- 
+  get_model_data(mod) |> 
+  rename(WAAS = RGPLA)
+
 stabs <- left_join(waas_vals, eco)
-corr_plot(stabs)
-```
-
-## stabilidade 
-```{r}
-pwaas <- plot_scores(mod, type = 3)
-phm + pwaas
-```
-
-## Performance e stabilidade
-```{r}
-plot_waasby(mod)
+ggplot(stabs, aes(WAAS, ecovalencia)) +
+  geom_point()
+cor(stabs$WAAS, stabs$ecovalencia)
 
 ```
+
+
 
 # Section info
 ```{r}

@@ -1,0 +1,403 @@
+---
+title: ""
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+# Pacotes
+```{r}
+library(rio)
+library(tidyverse)
+library(factoextra)
+library(FactoMineR)
+library(metan)
+library(ggthemes)
+library(patchwork)
+
+
+quali <- import("data/qualidade.xlsx")
+tipos <- import("data/tipos.xlsx")
+color <- import("data/color_2023.xlsx")
+
+color <- 
+  color |> 
+  mutate(GEN = str_remove(img, pattern = "proc_")) |> 
+  select(-c(h, s, b, img)) |> 
+  relocate(GEN, .before = 1)
+
+dfcolor <- 
+  reduce(list(color, quali, tipos), left_join) |> 
+  relocate(TIPO, .before = GEN)
+
+
+cordf <- 
+  dfcolor  |> 
+  mutate(
+    # BCC = B / (R + G + B),
+    # BGI = B / G,
+    # BI = sqrt((R^2 + G^2 + B^2) / 3),
+    # BI2 = sqrt((R^2 + G^2 + B^2) / 3),
+    # BRVI = (B - R) / (B + R),
+    # CI = (R - B) / R,
+    # CIVE = (0.811 * G) + (0.385 * B) + 18.78745,
+    # EGVI = 2 * G - R - B,
+    # ERVI = (1.4 * R) - G,
+    # GCC = G / (R + G + B),
+    # GLI = ((G - R) + (G - B)) / (G + R + G + B),
+    # GLAI = 25 * (G - R) / (G + R - B) + 1.25,
+    # GR = G / R,
+    # GRAY = 0.299 * R + 0.587 * G + 0.114 * B,
+    # GRAY2 = ((R^2.2 + (1.5 * G)^2.2 + (0.6 * B)^2.2) / (1 + 1.5^2.2 + 0.6^2.2))^(1 / 2.2),
+    # GRVI2 = (G - R) / (G + R),
+    # GB = G / B,
+    # HI = (2 * R - G - B) / (G - B),
+    HUE = atan(2 * (B - G - R) / (30.5 * (G - R))),
+    # HUE2 = atan(2 * (R - G - R) / (30.5 * (G - B))),  # Parece incorreto: R-G-R = R*(1 - 1) - G = -G?
+    # I = R + G + B,
+    IPCA = 0.994 * abs(R - B) + 0.961 * abs(G - B) + 0.914 * abs(G - R),
+    # L = (R + G + B) / 3,
+    # MGVRI = (G^2 - R^2) / (G^2 + R^2),
+    # MVARI = (G - B) / (G + R - B),
+    # NB = B / (R + G + B),
+    # NDI = 128 * ((G - R) / (G + R) + 1),
+    # NG = G / (R + G + B),
+    # NGBDI = (G - B) / (G + B),
+    # NGRDI = (G - R) / (G + R),
+    # NR = R / (R + G + B),
+    # PRI = R / G,
+    # RB = R / B,
+    # RCC = R / (R + G + B),
+    # RGBVI = (G^2 - (B * R)) / (G^2 + (B * R)),
+    # RI = (R^2) / (B * G^3),
+    SAT = (pmax(R, G, B) - pmin(R, G, B)) / pmax(R, G, B),
+    SAVI = (1 + 0.5) * (G - R) / (G + R + 0.5),
+    # SCI = (R - G) / (R + G),
+    # SHP = 2 * (R - G - B) / (G - B),
+    # SI = (R - B) / (R + B),
+    # S = ((R + G + B) - 3 * B) / (R + G + B),
+    # TGI = G - 0.39 * R - 0.61 * B,
+    VARI = (G - R) / (G + R - B),
+    # VEG = G / (R^0.667 * B^0.334),
+    # vNDVI = 0.5268 * (R - 0.1294 * G^0.3389 * B - 0.3118),
+    # WI = (G - B) / (R - G)
+  )
+
+
+```
+
+# PCA
+```{r}
+dfpca <- 
+  cordf |> 
+  group_by(TIPO) |> 
+  nest()
+
+cord <- corr_coef(dfpca$data[[1]])
+corm <- corr_coef(dfpca$data[[2]])
+plot(cord)
+plot(corm)
+
+pcad <- PCA(dfpca$data[[1]] |> column_to_rownames("GEN"), graph = FALSE)
+pcam <- PCA(dfpca$data[[2]] |> column_to_rownames("GEN"), graph = FALSE)
+
+bip_d <- fviz_pca_biplot(pcad, repel = TRUE) + theme_stata()
+bip_m <- fviz_pca_biplot(pcam, repel = TRUE) + theme_stata()
+
+bip_d + bip_m +
+  plot_annotation(tag_levels = list(c("Dourada", "Marrom")))
+
+ggsave("figs/biplot_pca_cor.jpg",
+       width = 15,
+       height = 6)
+
+```
+
+# Machine learning para predição de potencial antioxidante
+
+```{r eval = FALSE, include=FALSE}
+library(caret)
+library(e1071)
+library(randomForest)
+
+
+df_ml <- 
+  cordf |> 
+  # filter(TIPO == "DOURADA") |> 
+  select(-c(GEN, TIPO, POT_ANT, FLAVO)) |> 
+  remove_rows_na()
+
+# 1. Dividir os dados
+set.seed(123)
+split <- initial_split(df_ml, prop = 0.7)
+train_data <- training(split)
+test_data  <- testing(split)
+
+# 2. Definir controle com CV
+control <- trainControl(method = "cv", number = 10, verboseIter = TRUE)
+
+# 3. Ajustar modelo com treino
+grid_rf <- expand.grid(.mtry = 1:15)
+fit_rf <- train(
+  FEN_TOT ~ .,
+  data = train_data,
+  method = "rf",
+  tuneGrid = grid_rf,
+  ntree = 300,
+  trControl = control
+)
+
+# ----------- SVM (kernel radial) com grid ----------
+grid_svm <- expand.grid(
+  sigma = c(0.01, 0.05, 0.1),
+  C = c(0.25, 0.5, 1, 2)
+)
+
+fit_svm <- train(
+  FEN_TOT ~ .,
+  data = train_data,
+  method = 'svmRadial',
+  trControl = control,
+  preProcess = c("center", "scale"),
+  tuneGrid = grid_svm
+)
+
+# ----------- XGBoost ----------
+grid_xgb <- expand.grid(
+  nrounds = c(100, 200),
+  max_depth = c(3, 6, 9),
+  eta = c(0.05, 0.1, 0.3),
+  gamma = 0,
+  colsample_bytree = 1,
+  min_child_weight = 1,
+  subsample = 1
+)
+
+fit_xboost <- train(
+  FEN_TOT ~ .,
+  data = train_data,
+  method = 'xgbTree',
+  trControl = control,
+  tuneGrid = grid_xgb,
+  verbose = FALSE
+)
+
+# ----------- GLMNet (Lasso/Ridge/ElasticNet) ----------
+grid_glmnet <- expand.grid(
+  alpha = c(0, 0.5, 1),       # 0 = ridge, 1 = lasso
+  lambda = seq(0.001, 0.1, length = 10)
+)
+
+fit_glmnet <- train(
+  FEN_TOT ~ .,
+  data = train_data,
+  method = 'glmnet',
+  trControl = control,
+  tuneGrid = grid_glmnet
+)
+
+# ----------- Neural Network (nnet) ----------
+grid_nnet <- expand.grid(
+  size = c(3, 5, 7),
+  decay = c(0, 0.01, 0.1)
+)
+
+fit_nnet <- train(
+  FEN_TOT ~ .,
+  data = train_data,
+  method = 'nnet',
+  trControl = control,
+  tuneGrid = grid_nnet,
+  trace = FALSE,
+  linout = TRUE
+)
+
+fit_lm <- train(
+  FEN_TOT ~ .,
+  data = train_data,
+  method = 'lm',
+  trControl = control
+)
+
+# ----------- Comparar desempenho -----------
+resamples <- resamples(list(RandomForest = fit_rf,
+                            SVM = fit_svm,
+                            xgboost = fit_xboost,
+                            glmnet = fit_glmnet,
+                            nnet = fit_nnet,
+                            lm = fit_lm))
+summary(resamples)
+
+# ----------- Plot comparativo (RMSE, R2 etc.) -----------
+bwplot(resamples, metric = "Rsquared")
+# dotplot(resamples)
+
+
+# criar predito e observado para cada modelo
+# 5. Avaliar no conjunto de teste
+
+obs <- test_data$FEN_TOT
+# Criar lista com predições de todos os modelos no conjunto de teste
+resultados_teste <- tibble(
+  Modelo = c("Random Forest", "SVM", "XGBoost", "GLMNet", "NNet", "LM"),
+  Resultado = list(
+    postResample(predict(fit_rf,      newdata = test_data), obs),
+    postResample(predict(fit_svm,     newdata = test_data), obs),
+    postResample(predict(fit_xboost,  newdata = test_data), obs),
+    postResample(predict(fit_glmnet,  newdata = test_data), obs),
+    postResample(predict(fit_nnet,    newdata = test_data), obs),
+    postResample(predict(fit_lm,      newdata = test_data), obs)
+  )
+)
+
+# Expandir os resultados em colunas
+
+resultados_teste |>
+  unnest_wider(Resultado)
+
+```
+
+
+
+
+# Tidymodels
+```{r eval = FALSE, include=FALSE}
+library(tidymodels)
+library(future)
+library(rules)
+library(Cubist)
+
+plan(multisession, workers = 4)
+# 📊 Dados
+df_ml <-
+  cordf |> 
+  select(-c(GEN, TIPO, POT_ANT, FLAVO)) |> 
+  drop_na()
+
+# Split
+set.seed(123)
+split <- initial_split(df_ml, prop = 0.8)
+train_data <- training(split)
+test_data  <- testing(split)
+cv_folds <- vfold_cv(train_data, v = 10)
+
+# Receita
+recipe_base <- recipe(FEN_TOT ~ ., data = train_data) |> step_normalize(all_predictors())
+
+# ---------------------
+# 🌲 Random Forest
+# ---------------------
+rf_spec <- rand_forest(mtry = tune(), trees = 300, mode = "regression") |> set_engine("ranger")
+rf_grid <- grid_regular(mtry(range = c(3, 9)), levels = 4)
+rf_wf <- workflow() |> add_model(rf_spec) |> add_recipe(recipe_base)
+rf_res <- tune_grid(rf_wf, resamples = cv_folds, grid = rf_grid, metrics = metric_set(rmse, rsq, mae))
+
+# ---------------------
+# 📈 SVM
+# ---------------------
+svm_spec <- svm_rbf(mode = "regression", cost = tune(), rbf_sigma = tune()) |> set_engine("kernlab")
+svm_grid <- grid_regular(cost(range = c(0.25, 2)), rbf_sigma(range = c(0.01, 0.1)), levels = 3)
+svm_wf <- workflow() |> add_model(svm_spec) |> add_recipe(recipe_base)
+svm_res <- tune_grid(svm_wf, resamples = cv_folds, grid = svm_grid, metrics = metric_set(rmse, rsq, mae))
+
+# ---------------------
+# 🚀 XGBoost
+# ---------------------
+xgb_spec <- boost_tree(trees = tune(), tree_depth = tune(), learn_rate = tune(), mode = "regression") |> set_engine("xgboost")
+xgb_grid <- grid_regular(trees(range = c(100, 200)), tree_depth(range = c(3, 9)), learn_rate(range = c(0.05, 0.3)), levels = 3)
+xgb_wf <- workflow() |> add_model(xgb_spec) |> add_recipe(recipe_base)
+xgb_res <- tune_grid(xgb_wf, resamples = cv_folds, grid = xgb_grid, metrics = metric_set(rmse, rsq, mae))
+
+# ---------------------
+# 📐 GLMNet
+# ---------------------
+glmnet_spec <- linear_reg(penalty = tune(), mixture = tune()) |> set_engine("glmnet")
+glmnet_grid <- grid_regular(penalty(range = c(0.001, 0.1)), mixture(range = c(0, 1)), levels = 5)
+glmnet_wf <- workflow() |> add_model(glmnet_spec) |> add_recipe(recipe_base)
+glmnet_res <- tune_grid(glmnet_wf, resamples = cv_folds, grid = glmnet_grid, metrics = metric_set(rmse, rsq, mae))
+
+# ---------------------
+# 🧠 Neural Network
+# ---------------------
+nnet_spec <- mlp(hidden_units = tune(), penalty = tune()) |> set_engine("nnet", linout = TRUE, trace = FALSE) |> set_mode("regression")
+nnet_grid <- grid_regular(hidden_units(range = c(3, 7)), penalty(range = c(0, 0.1)), levels = 3)
+nnet_wf <- workflow() |> add_model(nnet_spec) |> add_recipe(recipe_base)
+nnet_res <- tune_grid(nnet_wf, resamples = cv_folds, grid = nnet_grid, metrics = metric_set(rmse, rsq, mae))
+
+# ---------------------
+# 📊 Regressão Linear
+# ---------------------
+lm_spec <- linear_reg() |> set_engine("lm") |> set_mode("regression")
+lm_wf <- workflow() |> add_model(lm_spec) |> add_recipe(recipe_base)
+lm_fit <- fit_resamples(lm_wf, resamples = cv_folds, metrics = metric_set(rmse, rsq, mae))
+
+
+# ---------------------
+# 📘 Cubist
+# ---------------------
+# Cubist model
+cubist_spec <- cubist_rules(committees = tune(), neighbors = tune()) |>
+  set_engine("Cubist") |>
+  set_mode("regression")
+
+cubist_grid <- expand.grid(
+  committees = c(10, 50),
+  neighbors = c(0, 3)
+)
+
+cubist_wf <- workflow() |>
+  add_model(cubist_spec) |>
+  add_recipe(recipe_base)
+
+# Fit model with tuning
+cubist_res <- tune_grid(
+  cubist_wf,
+  resamples = cv_folds,
+  grid = cubist_grid,
+  metrics = metric_set(rmse, rsq, mae)
+)
+
+# ---------------------
+# 📍 KNN
+# ---------------------
+knn_spec <- nearest_neighbor(neighbors = tune()) |> set_engine("kknn") |> set_mode("regression")
+knn_grid <- grid_regular(neighbors(range = c(3, 15)), levels = 5)
+knn_wf <- workflow() |> add_model(knn_spec) |> add_recipe(recipe_base)
+knn_res <- tune_grid(knn_wf, resamples = cv_folds, grid = knn_grid, metrics = metric_set(rmse, rsq, mae))
+
+# ------------------------
+# 📊 Comparação de resultados
+# ------------------------
+metrics <- 
+  bind_rows(
+    collect_metrics(rf_res) |> mutate(model = "Random Forest"),
+    collect_metrics(svm_res) |> mutate(model = "SVM"),
+    collect_metrics(xgb_res) |> mutate(model = "XGBoost"),
+    collect_metrics(glmnet_res) |> mutate(model = "GLMNet"),
+    collect_metrics(nnet_res) |> mutate(model = "NNet"),
+    collect_metrics(cubist_res) |> mutate(model = "Cubist"),
+    collect_metrics(knn_res) |> mutate(model = "KNN"),
+    collect_metrics(lm_fit) |> mutate(model = "LM")
+  ) |> 
+  filter(.metric == "rsq") |> 
+  group_by(model) |> 
+  slice_max(mean, n = 1)
+
+ggplot(aes(x = model, y = mean, fill = model)) +
+  geom_col() +
+  geom_text(aes(label = round(mean, 2)), vjust = -0.5) +
+  labs(title = "Comparação de modelos - R²", y = "R²") +
+  theme_minimal()
+
+```
+
+# Section info
+```{r}
+sessionInfo()
+```
+

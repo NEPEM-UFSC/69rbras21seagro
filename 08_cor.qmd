@@ -1,0 +1,125 @@
+---
+title: ""
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(cache = FALSE,
+                      comment = "##",
+                      collapse = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+# Pacotes
+```{r}
+library(rio)
+library(tidyverse)
+library(factoextra)
+library(FactoMineR)
+library(metan)
+library(ggthemes)
+library(patchwork)
+
+
+quali <- import("data/qualidade.xlsx")
+tipos <- import("data/tipos.xlsx")
+color <- import("data/color_2023.xlsx")
+
+color <- 
+  color |> 
+  mutate(GEN = str_remove(img, pattern = "proc_")) |> 
+  select(-c(h, s, b, img)) |> 
+  relocate(GEN, .before = 1)
+
+dfcolor <- 
+  reduce(list(color, quali, tipos), left_join) |> 
+  relocate(TIPO, .before = GEN)
+
+
+cordf <- 
+  dfcolor  |> 
+  mutate(
+    # BCC = B / (R + G + B),
+    # BGI = B / G,
+    # BI = sqrt((R^2 + G^2 + B^2) / 3),
+    # BI2 = sqrt((R^2 + G^2 + B^2) / 3),
+    # BRVI = (B - R) / (B + R),
+    # CI = (R - B) / R,
+    # CIVE = (0.811 * G) + (0.385 * B) + 18.78745,
+    # EGVI = 2 * G - R - B,
+    # ERVI = (1.4 * R) - G,
+    # GCC = G / (R + G + B),
+    # GLI = ((G - R) + (G - B)) / (G + R + G + B),
+    # GLAI = 25 * (G - R) / (G + R - B) + 1.25,
+    # GR = G / R,
+    # GRAY = 0.299 * R + 0.587 * G + 0.114 * B,
+    # GRAY2 = ((R^2.2 + (1.5 * G)^2.2 + (0.6 * B)^2.2) / (1 + 1.5^2.2 + 0.6^2.2))^(1 / 2.2),
+    # GRVI2 = (G - R) / (G + R),
+    # GB = G / B,
+    # HI = (2 * R - G - B) / (G - B),
+    HUE = atan(2 * (B - G - R) / (30.5 * (G - R))),
+    # HUE2 = atan(2 * (R - G - R) / (30.5 * (G - B))),  # Parece incorreto: R-G-R = R*(1 - 1) - G = -G?
+    # I = R + G + B,
+    IPCA = 0.994 * abs(R - B) + 0.961 * abs(G - B) + 0.914 * abs(G - R),
+    # L = (R + G + B) / 3,
+    # MGVRI = (G^2 - R^2) / (G^2 + R^2),
+    # MVARI = (G - B) / (G + R - B),
+    # NB = B / (R + G + B),
+    # NDI = 128 * ((G - R) / (G + R) + 1),
+    # NG = G / (R + G + B),
+    # NGBDI = (G - B) / (G + B),
+    # NGRDI = (G - R) / (G + R),
+    # NR = R / (R + G + B),
+    # PRI = R / G,
+    # RB = R / B,
+    # RCC = R / (R + G + B),
+    # RGBVI = (G^2 - (B * R)) / (G^2 + (B * R)),
+    # RI = (R^2) / (B * G^3),
+    SAT = (pmax(R, G, B) - pmin(R, G, B)) / pmax(R, G, B),
+    SAVI = (1 + 0.5) * (G - R) / (G + R + 0.5),
+    # SCI = (R - G) / (R + G),
+    # SHP = 2 * (R - G - B) / (G - B),
+    # SI = (R - B) / (R + B),
+    # S = ((R + G + B) - 3 * B) / (R + G + B),
+    # TGI = G - 0.39 * R - 0.61 * B,
+    VARI = (G - R) / (G + R - B),
+    # VEG = G / (R^0.667 * B^0.334),
+    # vNDVI = 0.5268 * (R - 0.1294 * G^0.3389 * B - 0.3118),
+    # WI = (G - B) / (R - G)
+  )
+
+
+```
+
+# PCA
+```{r}
+dfpca <- 
+  cordf |> 
+  group_by(TIPO) |> 
+  nest()
+
+cord <- corr_coef(dfpca$data[[1]])
+corm <- corr_coef(dfpca$data[[2]])
+plot(cord)
+plot(corm)
+
+pcad <- PCA(dfpca$data[[1]] |> column_to_rownames("GEN"), graph = FALSE)
+pcam <- PCA(dfpca$data[[2]] |> column_to_rownames("GEN"), graph = FALSE)
+
+bip_d <- fviz_pca_biplot(pcad, repel = TRUE) + theme_stata()
+bip_m <- fviz_pca_biplot(pcam, repel = TRUE) + theme_stata()
+
+bip_d + bip_m +
+  plot_annotation(tag_levels = list(c("Dourada", "Marrom")))
+
+ggsave("figs/biplot_pca_cor.jpg",
+       width = 15,
+       height = 6)
+
+```
+
+# Section info
+```{r}
+sessionInfo()
+```
+

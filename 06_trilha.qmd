@@ -25,6 +25,7 @@ planta <-
   mutate(MMG = MG / NG * 1000,
          ICC = MG / MC)
 
+
 ggplot(planta, aes(NG, MG)) +
   geom_point()
 # bindar as informações dos grãos
