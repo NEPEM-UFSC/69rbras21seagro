@@ -12,18 +12,24 @@ knitr::opts_chunk$set(cache = FALSE,
 
 
 # Pacotes
-
-
 # caracterização ambiental
+
+https://academic.oup.com/g3journal/article/11/4/jkab040/6129777
 
 ```{r}
 library(envirotypeR)
+library(tidyverse)
+library(ggridges)
+library(rio)
+library(ggthemes)
+library(patchwork)
 env <- c("FLO2022", "FLO2023", "CN2024")
 lat <- c(-27.681, -27.681, -27.370)
 lon <- c(-48.541, -48.541, -51.204)
-start.day <- c("01/04/2022", "15/04/2023", "20/05/2024")
-end.day <-   c("30/10/2022", "30/10/2023", "15/11/2024")
+start.day <- c("15/04/2022", "15/04/2023", "20/05/2024")
+end.day <-   c("30/09/2022", "30/09/2023", "15/11/2024")
 
+as.Date("15/04/2022", format = "%d/%m/%Y") + 150
 climate <- 
   envirotypeR::get_weather(
     env.id = env,
@@ -33,10 +39,136 @@ climate <-
     end.day = end.day
   )
 
+export(climate, "data/climate.xlsx")
+climate <- 
+  import("data/climate.xlsx") |> 
+  mutate(env = factor(env, c("FLO2022", "FLO2023", "CN2024")))
 
 ```
 
-# Gráficos clima
+
+
+# Comparação dos dados da estação com NASAPOWER
+
+```{r}
+temps_2022 <- 
+  import("data/temps_2022.csv") |> 
+  separate_wider_delim(Horário, 
+                       names = c("dia", "hora"), 
+                       delim = " ",
+                       too_few = "align_start") |> 
+  mutate(YYYYMMDD = lubridate::dmy(dia),
+         env = "FLO2022") |> 
+  separate_wider_delim(dia, 
+                       names = c("dia", "mes", "ano"), 
+                       delim = "-") |> 
+  group_by(dia, mes, env) |> 
+  summarise(T2M_MAX_EST = max(`Temperatura do Ar Mínima`, na.rm = TRUE),
+            T2M_MIN_EST = min(`Temperatura do Ar Mínima`, na.rm = TRUE),
+            UR = mean(`Umidade do Ar Média`, na.rm = TRUE))
+
+temps_2023 <- 
+  import("data/temps_2023.csv") |> 
+  separate_wider_delim(Horário, 
+                       names = c("dia", "hora"), 
+                       delim = " ",
+                       too_few = "align_start") |> 
+  mutate(YYYYMMDD = lubridate::dmy(dia),
+         env = "FLO2023") |> 
+  separate_wider_delim(dia, 
+                       names = c("dia", "mes", "ano"), 
+                       delim = "-") |> 
+  group_by(dia, mes, env) |> 
+  summarise(T2M_MAX_EST = max(`Temperatura do Ar Mínima`, na.rm = TRUE),
+            T2M_MIN_EST = min(`Temperatura do Ar Mínima`, na.rm = TRUE),
+            UR = mean(`Umidade do Ar Média`, na.rm = TRUE))
+
+dados_estacao <- bind_rows(temps_2022, temps_2023)
+# juntar nasapower com estação
+dfnp <- 
+  climate |> 
+  separate_wider_delim(YYYYMMDD, 
+                       names = c("ano", "mes", "dia"), 
+                       delim = "-") 
+
+dfcomp <- 
+  left_join(dfnp, dados_estacao) |> 
+  filter(env %in% c("FLO2022", "FLO2023")) |> 
+  dplyr::select(env, T2M_MAX, T2M_MAX_EST, T2M_MIN, T2M_MIN_EST, RH2M,  UR) |> 
+  filter(!is.infinite(T2M_MAX_EST), T2M_MIN_EST > 0, UR > 60)
+
+
+relacao_tmax <- 
+  ggplot(dfcomp, aes(T2M_MAX, T2M_MAX_EST, fill = env)) +
+  geom_point(shape =21, size = 3) +
+  facet_wrap(~env, ncol = 1) +
+  xlim(10, 40) +
+  ylim(10, 40) +
+  coord_equal() +
+  theme_bw(base_size = 14) +
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Temperatura máxima NASAPOWER (ºC)",
+       y = "Temperatura máxima estação (ºC)",
+       fill = "") 
+
+relacao_tmin <- 
+  ggplot(dfcomp, aes(T2M_MIN, T2M_MIN_EST, fill = env)) +
+  geom_point(shape =21, size = 3) +
+  facet_wrap(~env, ncol = 1) +
+  xlim(0, 25) +
+  ylim(0, 25) +
+  coord_equal() +
+  theme_bw(base_size = 14) +
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Temperatura mínima NASAPOWER (ºC)",
+       y = "Temperatura mínima estação (ºC)",
+       fill = "") 
+
+relacao_ur <- 
+  ggplot(dfcomp, aes(RH2M, UR, fill = env)) +
+  geom_point(shape =21, size = 3) +
+  facet_wrap(~env, ncol = 1) +
+  xlim(40, 100) +
+  ylim(40, 100) +
+  coord_equal() +
+  theme_bw(base_size = 14) +
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = "Umidade relativa NASAPOWER (%)",
+       y = "Umidade relativa estação (%)",
+       fill = "") 
+
+relacao_tmax + relacao_tmin + relacao_ur +
+  plot_annotation(tag_levels = "a", tag_suffix = ")") +
+  plot_layout(guides = "collect") & 
+  theme(legend.position = "bottom")
+
+ggsave("figs/relacao_nasapower_estacao.jpg", width = 12, height = 8)
+
+# checar a coincidencia
+coef_tmax <- 
+  dfcomp |> 
+  group_by(env) |> 
+  ccc(T2M_MAX, T2M_MAX_EST) |> 
+  mutate(var = "T2M_MAX")
+
+# checar a coincidencia
+coef_tmin <- 
+  dfcomp |> 
+  group_by(env) |> 
+  ccc(T2M_MIN, T2M_MIN_EST) |> 
+  mutate(var = "T2M_MIN")
+
+coef_ur <-
+  dfcomp |> 
+  group_by(env) |> 
+  ccc(RH2M, UR) |> 
+  mutate(var = "RH2M")
+bind_rows(coef_tmax, coef_tmin, coef_ur)
+```
+
+
+
+# Gráficos de distribuição
 ```{r}
 dfplot <- 
   climate |> 
@@ -45,72 +177,108 @@ dfplot <-
                        delim = "-")
 
 
-ggplot(dfplot, aes(T2M_MAX, y = mes, fill = mes)) +
+ptmax <- 
+  ggplot(dfplot, aes(RH2M, y = mes, fill = after_stat(x))) +
   facet_wrap(~env, ncol = 1) +
-  geom_density_ridges()
+  geom_density_ridges_gradient() +
+  scale_fill_viridis_c() +
+  theme(axis.text.y = element_text(angle = 0)) +
+  labs(x = "Temperatura máxima (ºC)",
+       y = "Mês do ano",
+       fill = "(ºC)")
 
-id_var <- names(climate)[7:ncol(climate)]
-EC <- 
-  W_matrix(env.data = climate,
-           env.id = "env",
-           var.id = id_var,
-           by.interval = TRUE,
-           time.window = c(0, 15, 35, 65, 90, 120),
-           QC = TRUE,
-           sd.tol = 3)
+pumre <- 
+  ggplot(dfplot, aes(RH2M, y = mes, fill = after_stat(x))) +
+  facet_wrap(~env, ncol = 1) +
+  geom_density_ridges_gradient() +
+  scale_fill_viridis_c() +
+  theme(axis.text.y = element_text(angle = 0)) +
+  labs(x = "Umidade relativa do ar (%)",
+       y = "Mês do ano",
+       fill = "%")
+
+ptmin + ptmax + pumre +
+  plot_annotation(tag_levels = "a", tag_suffix = ")")
+
+ggsave("figs/densidades_temp.jpg", width = 12, height = 8)
 ```
+
+
 
 
 # Tipagem ambiental
 ```{r}
-names.window <- c('1-intial growing','2-leaf expansion I','3-leaf expansion II','4-flowering','5-grain filling', "")
-names_var <- names(env_trials)[11:ncol(env_trials)]
-
-out <- 
-  env_trials |> 
-  env_typing(env.id = "ME",
-             var.id = names_var,
-             by.interval = TRUE,
-             time.window = c(0, 15, 35, 65, 90),
-             names.window = names.window,
-             quantiles = c(.01, .25, .50, .75, .975, .99)) |> 
-  left_join(df_me, by = c("env" =  "ENV")) |> 
-  separate(env.variable,
-           into = c("var", "freq"),
-           sep = "_",
-           extra = "drop")
-
-out_env <- 
-  env_trials |> 
-  env_typing(env.id = "env",
-             var.id = names_var,
-             by.interval = TRUE,
-             time.window = c(0, 15, 35, 65, 90),
-             names.window = names.window,
-             quantiles = c(.01, .25, .50, .75, .975, .99)) |> 
-  left_join(df_me, by = c("env" =  "ENV")) |> 
-  separate(env.variable,
-           into = c("var", "freq"),
-           sep = "_",
-           extra = "drop")
+climate <- 
+  import("data/climate.xlsx") |> 
+  dplyr::select(env, T2M_MAX, T2M_MIN, RH2M, daysFromStart, DOY) |> 
+  mutate(estadio = case_when(
+    between(daysFromStart, 0, 35) ~ "Estabelecimento",
+    between(daysFromStart, 36, 60) ~ "Vegetativo",
+    between(daysFromStart, 61, 90) ~ "Floração",
+    daysFromStart > 90 ~ "Reprodutivo",
+  )) |> 
+  group_by(env) |> 
+  nest()
 
 
+create_class <- function(data,
+                         var,
+                         breaks = c(10, 15, 20, 25, 30),
+                         labels = c("10-15", "15-20", "20-25", "> 25")) {
+  var <- rlang::enquo(var)
+  if (dplyr::is_grouped_df(data)) {
+    dplyr::group_modify(data, ~create_class(.x, !!var, breaks, labels))
+  } else {
+    x <- dplyr::select(data, !!var) |> dplyr::pull()
+    xcut <- cut(x, breaks = breaks, labels = labels)
+    as.data.frame(table(xcut)) |>
+      dplyr::mutate(fr = Freq / sum(Freq))
+  }
+}
+
+dfclasses <- 
+climate |> 
+  mutate(classes = map(data, ~create_class(.x |> group_by(estadio), T2M_MAX))) |> 
+  unnest(classes) |> 
+  mutate(estadio = factor(estadio, 
+                          levels = c("Estabelecimento", "Vegetativo", "Floração",
+                                     "Reprodutivo")))
+
+
+
+
+ggplot(dfclasses) +
+  geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
+           position = "fill",
+           stat = "identity",
+           width = 1,
+           color = "white",
+           size=.2)+
+  facet_wrap(~env, ncol = 1) +
+  labs(x = "Frequência relativa",
+       y = "Estádio fenológico",
+       fill = "Temp máxima (ºC)")
 ```
+
+
+
+
+
 
 ```{r}
 
 variable <- "VPD"
 # p4 <-
-out |> 
+out |>
   subset(var == variable) |> # change the variable here
-  ggplot() + 
-  geom_bar(aes(x=Freq,  y = env, fill = freq), 
+  ggplot() +
+  geom_bar(aes(x=Freq,  y = env, fill = freq),
            position = "fill",
            stat = "identity",
            width = 1,
            color = "white",
            size=.2) +
-  facet_wrap(~interval, ncol = 5) + 
+  facet_wrap(~interval, ncol = 5) +
   scale_y_discrete(expand = c(0,0))+
   scale_x_continuous(expand = c(0,0))+
   labs(x = 'Relative frequency',
@@ -130,90 +298,10 @@ ggsave("figs/vpd.jpg", width = 12, height = 3)
 
 
 
-# Interação genótipo ambiente
-
-$$
-y_{ij} = m + g_i + a_j + (ga)_{ij}
-$$
-
-$$
-\hat{g_i} = \bar{g_i} - m  \\
-\hat{a_j} = \bar{a_j} - m  
-$$
-$$
-\hat{(ga)_{ij}} = y_{ij} - m - \hat{g_i} - \hat{a_j} \\
-\hat{(ga)_{ij}} = y_{ij} - \bar{g_i} - \bar{a_j} + m
-$$
 
 
-```{r}
-matga <- dfge |> column_to_rownames("GEN") |> as.matrix()
-m <- mean(matga)
-
-# ESTIMANDO O EFEITO DA INTERAÇÃO
-mat_ef <- matrix(NA, ncol = ncol(matga), nrow = nrow(matga))
-
-for(i in 1:nrow(matga)){
-  egi <- mean(matga[i, ]) - m
-  for(j in 1:ncol(matga)){
-    eaj <- mean(matga[, j]) - m
-    mat_ef[i, j] <- matga[i, j] - m - egi - eaj
-  }
-}
-colnames(mat_ef) <- colnames(matga)
-rownames(mat_ef) <- rownames(matga)
 
 
-# criar um mapa de calor
-dfggp <- 
-mat_ef |> 
-  as.data.frame() |> 
-  tibble::rownames_to_column("gen") |> 
-  pivot_longer(-gen, names_to = "amb", values_to = "rg")
-
-phm <- 
-ggplot(dfggp, aes(amb, gen, fill = rg))+
-  geom_tile() +
-  scale_fill_viridis_c()
-
-
-```
-
-# Método WAAS
-```{r}
-
-mod <- waas_means(df_ggplot, AMB, GEN, RGPLA)
-waas_vals <- get_model_data(mod)
-p1 <- plot_scores(mod, type = 2)
-library(patchwork)
-phm + p1
-
-
-plot_waasby(mod)
-```
-
-## Método Wricke
-```{r}
-ecovalencia <- 
-  apply(mat_ef, 1, function(x){
-    sum(x^2)
-  })
-eco <- data.frame(ecovalencia) |> rownames_to_column("GEN")
-stabs <- left_join(waas_vals, eco)
-corr_plot(stabs)
-```
-
-## stabilidade 
-```{r}
-pwaas <- plot_scores(mod, type = 3)
-phm + pwaas
-```
-
-## Performance e stabilidade
-```{r}
-plot_waasby(mod)
-
-```
 
 # Section info
 ```{r}

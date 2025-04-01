@@ -35,6 +35,7 @@ df <-  import("data/dados_plantas.xlsx")
 df <- 
   df |> 
   mutate(GEN = str_remove(GEN, "D|M"))
+
 ggplot(df, aes(MG, GEN, fill = TIPO)) +
   geom_boxplot() +
   scale_fill_manual(values = c("gold", "brown")) +
@@ -54,10 +55,6 @@ ggsave("figs/boxplot_2024.jpg",
 # Variância entre e dentro
 ## Modelo
 ```{r}
-library(lme4)
-library(dplyr)
-library(lmerTest)
-library(dplyr)
 
 
 vcomp <- function(data, traits, gen_col = "GEN",
