@@ -69,6 +69,12 @@ coldiag <-
     colin_medias$VIF |> rename(VIF_MEDIA = VIF)
   )
 
+coldiag1 <-
+  colindiag(dfmedias, -c(MG,NC,NG)) #mg, nc, ng
+
+
+ det(as.matrix(colin_medias$cormat))
+
 ```
 
 
@@ -84,15 +90,27 @@ plot(trilha1_planta)
 
 trilha1_media <- path_coeff(dfmedias, 
                             resp = MG,
+                            correction = 0.1,
                             pred = everything())
 
 plot(trilha1_media)
 ```
 
+#Regressão em crista
+#Diagonal Direto, linha indireto
+#DIreto -> efeito puro da variável, soma da linha -> pearson.
+#VIF, menor que 10
+#Condição(Razão maior e menor abaixo de 100, )
+#Determinante quanto menor, mais problemático
+
+
 ## Estimando os coeficientes
 ```{r}
-cor.x <- as.matrix(trilha1_planta$Corr.x)
-cor.y <- as.matrix(trilha1_planta$Corr.y)
+library(metan)
+cor.x <- as.matrix(colin_medias$cormat)
+correl <- corr_coef(dfmedias)
+cor.y <- as.vector(corr_focus(correl, MG)$MG)
+
 direto <- solve(cor.x %*% t(cor.x)) %*% cor.x %*% cor.y
 n <- ncol(cor.x)
 Coeff <- data.frame(cor.x)
