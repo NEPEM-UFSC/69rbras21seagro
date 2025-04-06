@@ -23,7 +23,7 @@ library(ggthemes)
 library(factoextra)
 library(FactoMineR)
 library(patchwork)
-
+library(AgroR)
 ```
 
 
