@@ -21,17 +21,12 @@ library(tidyverse)
 library(purrr)
 library(rio)
 set_wd_here("figs/capsulas")
-img <- image_import("a1426e78-6bc2-4ce4-9d58-0777384c066d.jpg")
-res <- 
-  analyze_objects(
-    img,
-    resize = 50,
-    index = "GRAY",
-    marker = "point",
-    marker_col = "red",
-    opening = 15,
-    filter = 3
-  )
+img <- image_import("a1426e78-6bc2-4ce4-9d58-0777384c066d.jpg", resize = 50)
+bin <- image_binary(img, index = "GRAY")[[1]]
+fmed <- image_filter(bin, size = 3)
+boa <- image_opening(fmed, size = 20)
+image_combine(img, bin, fmed, boa, ncol = 2)
+
 
 ```
 
@@ -178,6 +173,7 @@ export(final, "dados_cenarios.xlsx")
 
 
 
+
 # Concordância
 
 
@@ -195,42 +191,14 @@ Enquanto o coeficiente de correlação de Pearson r mede apenas a precisão (a f
 
 df <- 
   import("data/acuracia_capsulas.xlsx") |> 
-  as_factor(filter:resolucao) %>% 
+  metan::as_factor(filter:resolucao) %>% 
   mutate(filter = paste0("filter = ", filter),
          opening = paste0("opening = ", opening))
-
-ccc_lin <- function(data, real, predito) {
-  # extrai os valores para um vetor
-  if(is.grouped_df(data)){
-    data %>% 
-      group_modify(~ccc_lin(.x, {{real}}, {{predito}})) %>% 
-      ungroup()
-  } else{
-    x <- data |> select({{real}}) |> pull()
-    y <- data |> select({{predito}}) |> pull()
-    # Estatísticas básicas
-    mean_x <- mean(x)
-    mean_y <- mean(y)
-    var_x  <- var(x)
-    var_y  <- var(y)
-    cov_xy <- cov(x, y)
-    
-    # Correlação de Pearson
-    r <- cov_xy / (sqrt(var_x) * sqrt(var_y))
-    # Erro quadrático médio
-    rmse <- sqrt(mean((x - y)^2))
-    # Concordância de Lin
-    ccc <- (2 * cov_xy) / (var_x + var_y + (mean_x - mean_y)^2)
-    # retorna
-    return(data.frame(r = r, rmse = rmse, ccc = ccc))
-  }
-  
-}
 
 # Agora computa as métricas (vou computar elas depois de novo para colocar nos gráficos)
 df |> 
   group_by(filter, opening, resolucao) %>%
-  ccc_lin(real, predito) %>%
+  ccc(real, predito) %>%
   mutate(rho = paste0("rho[c]:~", round(ccc, 4)),
          rmse = paste0("RMSE:~", round(rmse, 4)),
          r = paste0("r:~~~", round(r, 4)))
@@ -274,7 +242,7 @@ ggplot(dfvalid$data[[1]], aes(predito, real)) +
             y = 340,
             hjust = 0,
             size = 3,
-            data = dfvalid$ccc[[1]],s
+            data = dfvalid$ccc[[1]],
             parse = TRUE) +
   geom_text(aes(label=r),
             x = 5,

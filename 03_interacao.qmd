@@ -31,9 +31,10 @@ dfge <-
 
 df_ggplot <- 
   dfge |> 
-  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA")
+  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA") |> 
+  filter(GEN %in% c("G1", "G13"))
 
-ggplot(df_ggplot, aes(x = AMB, y = RGPLA, fill = GEN)) +
+ggplot(df_ggplot, aes(x = GEN, y = RGPLA, fill = AMB)) +
   geom_col(position = position_dodge())
 ```
 

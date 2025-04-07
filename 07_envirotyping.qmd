@@ -236,18 +236,18 @@ create_class <- function(data,
   }
 }
 
+# ENVIROTYPE TMAX
 dfclasses <- 
-climate |> 
+  climate |> 
   mutate(classes = map(data, ~create_class(.x |> group_by(estadio), T2M_MAX))) |> 
   unnest(classes) |> 
   mutate(estadio = factor(estadio, 
                           levels = c("Estabelecimento", "Vegetativo", "Floração",
-                                     "Reprodutivo")))
+                                     "Reprodutivo")),
+         env = factor(env, c("FLO2022", "FLO2023", "CN2024")))
 
-
-
-
-ggplot(dfclasses) +
+etmax <- 
+  ggplot(dfclasses) +
   geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
            position = "fill",
            stat = "identity",
@@ -255,9 +255,82 @@ ggplot(dfclasses) +
            color = "white",
            size=.2)+
   facet_wrap(~env, ncol = 1) +
+  theme(legend.position = "bottom") +
   labs(x = "Frequência relativa",
        y = "Estádio fenológico",
        fill = "Temp máxima (ºC)")
+
+
+# ENVIROTYPE TMIN
+dfettmin <- 
+  climate |> 
+  mutate(classes = map(data, function(x){
+    x |> 
+      group_by(estadio) |> 
+      create_class(breaks = c(0, 10, 15, 20, 25),
+                   labels = c("0-10", "10-15", "15-20", "> 20"),
+                   T2M_MIN)
+  })) |> 
+  unnest(classes) |> 
+  mutate(estadio = factor(estadio, 
+                          levels = c("Estabelecimento", "Vegetativo", "Floração",
+                                     "Reprodutivo")),
+         env = factor(env, c("FLO2022", "FLO2023", "CN2024")))
+
+
+etmin <- 
+  ggplot(dfettmin) +
+  geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
+           position = "fill",
+           stat = "identity",
+           width = 1,
+           color = "white",
+           size=.2)+
+  theme(legend.position = "bottom") +
+  facet_wrap(~env, ncol = 1) +
+  labs(x = "Frequência relativa",
+       y = "Estádio fenológico",
+       fill = "Temp mínima (ºC)")
+
+# ENVIROTYPE UR
+dfettur <- 
+  climate |> 
+  mutate(classes = map(data, function(x){
+    x |> 
+      group_by(estadio) |> 
+      create_class(breaks = c(50, 65, 80, 95, 100),
+                   labels = c("50-65", "65-80", "80-95", "> 95"),
+                   RH2M)
+  })) |> 
+  unnest(classes) |> 
+  mutate(estadio = factor(estadio, 
+                          levels = c("Estabelecimento", "Vegetativo", "Floração",
+                                     "Reprodutivo")),
+         env = factor(env, c("FLO2022", "FLO2023", "CN2024")))
+
+
+etur <- 
+  ggplot(dfettur) +
+  geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
+           position = "fill",
+           stat = "identity",
+           width = 1,
+           color = "white",
+           size=.2)+
+  facet_wrap(~env, ncol = 1) +
+  theme(legend.position = "bottom") +
+  labs(x = "Frequência relativa",
+       y = "Estádio fenológico",
+       fill = "Umidade Relativa (%)")
+
+# juntar os gráficos
+etmax + etmin + etur +
+  plot_annotation(tag_levels = "a", tag_suffix = ")")
+ggsave("figs/envirotype.jpg", width = 16, height = 5)
+
+# rbind dos dados
+bind_rows(dfettur, dfettmin, dfclasses) |> 
+  export("data/envirotype.xlsx")
 ```
 
 
