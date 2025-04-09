@@ -59,6 +59,7 @@ dfmedias <-
 
 
 # Diagnóstico da multicolinearidade
+## VIFS
 ```{r}
 colin_plantas <- colindiag(dfplantas, -MG)
 colin_medias <- colindiag(dfmedias, - MG)
@@ -69,14 +70,19 @@ coldiag <-
     colin_medias$VIF |> rename(VIF_MEDIA = VIF)
   )
 
-coldiag1 <-
-  colindiag(dfmedias, -c(MG,NC,NG)) #mg, nc, ng
+coldiag
 
 
- det(as.matrix(colin_medias$cormat))
+det(as.matrix(colin_medias$cormat))
 
 ```
 
+## Autovalores-autovetores
+```{r}
+evmed <- colin_medias$evalevet |> mutate(cenario = "medias", .before = 1)
+evplanta <- colin_medias$evalevet |> mutate(cenario = "plantas", .before = 1)
+bind_rows(evmed, evplanta) |> round_cols(digits = 4)
+```
 
 # Trilha
 ## Sem nenhuma correção
@@ -90,7 +96,6 @@ plot(trilha1_planta)
 
 trilha1_media <- path_coeff(dfmedias, 
                             resp = MG,
-                            correction = 0.1,
                             pred = everything())
 
 plot(trilha1_media)
@@ -133,14 +138,6 @@ trilha2_planta <-
 
 plot(trilha2_planta$Models$Model_1)
 
-
-trilha2_media <- 
-  path_coeff(dfmedias, 
-             resp = MG,
-             pred = everything(),
-             brutstep = TRUE)
-
-plot(trilha2_planta$Models$Model_1)
 ```
 
 

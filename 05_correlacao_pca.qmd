@@ -18,12 +18,17 @@ knitr::opts_chunk$set(cache = FALSE,
 library(rio)
 library(tidyverse)
 library(factoextra)
+library(FactoMineR)
 library(metan)
+library(corrplot)
+library(ggthemes)
+library(patchwork)
+
 dfgens <- 
   import("data/dados_plantas.xlsx") |> 
   mutate(CP = AP - AC) |> 
   group_by(GEN) |> 
-  summarise(across(AP:CP, \(x){mean(x, na.rm = TRUE)})) |> 
+  summarise(across(AP:ICC, \(x){mean(x, na.rm = TRUE)})) |> 
   select(-AC)
 tipos <- import("data/tipos.xlsx")
 
@@ -46,7 +51,7 @@ dfggplot |>
   })) 
 
 # numero de genótipos em cada 
-map(corrs$data, function(x){
+map(corrs$data[1:2], function(x){
     summarise(x, n())
   })|> 
   list_rbind() |> 
@@ -69,6 +74,11 @@ diag(lowerpv) <- 1
 jpeg("figs/correlacao.jpg", width = 6, height = 6, units = "in", res = 600)
 corrplot(lower,
          method = "number",
+         p.mat = lowerpv,
+         order = "hclust",
+         insig = "pch",
+         pch.cex = 1,
+         pch.col = "gray50",
          diag = FALSE)
 dev.off()
 
@@ -78,7 +88,8 @@ cor_m <- tidy_sym(corrs$corr[[2]]$cor, keep_diag = FALSE) |> rename(value_m = va
 
 combs <- 
   left_join(cor_d, cor_m) |> 
-  mutate(diff = value_m - value)
+  mutate(diff = value_m - value) %>% 
+  arrange(desc(diff))
 ```
 
 # Exploração

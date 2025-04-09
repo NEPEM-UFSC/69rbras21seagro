@@ -22,6 +22,7 @@ library(ggthemes)
 library(factoextra)
 library(lme4)
 library(lmerTest)
+library(patchwork)
 df <-  import("data/dados_plantas.xlsx")
 
 ```
@@ -36,6 +37,7 @@ df <-
   df |> 
   mutate(GEN = str_remove(GEN, "D|M"))
 
+box <- 
 ggplot(df, aes(MG, GEN, fill = TIPO)) +
   geom_boxplot() +
   scale_fill_manual(values = c("gold", "brown")) +
@@ -46,16 +48,12 @@ ggplot(df, aes(MG, GEN, fill = TIPO)) +
        y = "Genótipo",
        fill = "")
 
-ggsave("figs/boxplot_2024.jpg",
-       width = 12,
-       height = 5)
 ```
 
 
 # Variância entre e dentro
 ## Modelo
 ```{r}
-
 
 vcomp <- function(data, traits, gen_col = "GEN",
                   plant_col = "PLANTA",
@@ -72,8 +70,8 @@ vcomp <- function(data, traits, gen_col = "GEN",
     var_res <- vc[vc$grp == "Residual", "vcov"]
     var_planta <- vc[vc$grp == "GEN_PLANTA", "vcov"]
     
-    n <- mean(table(dados_filtrados[dados_filtrados[[check_col]] == 0, gen_col]))
-    
+    n <- 4
+    print(n)
     H2 <- var_gen / (var_gen + (var_planta + var_res) / n)
     
     ran <- tryCatch({
@@ -95,8 +93,9 @@ vcomp <- function(data, traits, gen_col = "GEN",
   return(df_final)
 }
 
-variaveis <- c("AP", "AC", "CP", "MC", "MG", "MMG", "ICC")
+variaveis <- c("AP", "AC", "CP", "MC", "MG", "MMG", "ICC", "NR", "NC", "NG")
 vals <- vcomp(df, variaveis)
+export(vals, "data/vcomp.xlsx")
 ```
 
 ## Gráficos
@@ -113,7 +112,7 @@ df_vcomp <-
     )
   )
 
-
+vcmp <- 
 ggplot(df_vcomp, aes(name, value))+
   geom_col(aes(fill = parametro), position = "fill",
            color = "black") +
@@ -132,6 +131,15 @@ ggplot(df_vcomp, aes(name, value))+
   labs(x = "Caracteres",
        y = "Proporção da variância fenotípica",
        fill = "")
+
+box + vcmp +
+    plot_layout(widths = c(0.6, 0.4)) +
+  plot_annotation(tag_levels = "a", 
+                  tag_suffix = ")")
+
+ggsave("figs/boxplot_vcomp.jpg",
+       width = 15,
+       height = 6)
 ```
 
 ```{r}
@@ -189,13 +197,36 @@ min(ddourada)
 max(ddourada)
 
 
-
-fviz_dend(ddourada$hc,
-          k = 3,
-          type = "phylogenic") 
+dend_dourada <- 
+  fviz_dend(ddourada$hc,
+            main = "",
+            type = "phylogenic",
+            k = 3)   +
+  ylim(-20, 600)
 
 ```
 
+## Marrom
+```{r}
+matm <- mat$data[[2]] |> column_to_rownames("GEN")
+marrom <- clustering(matm)
+
+dend_marrom <- 
+  fviz_dend(marrom$hc,
+            main = "",
+            k = 3)  +
+  ylim(-20, 600)
+
+dend_dourada + dend_marrom +
+  plot_layout(widths = c(0.3, 0.7)) +
+  plot_annotation(tag_levels = "a", 
+                  tag_suffix = ")")
+ggsave(
+  "figs/dendrograma.jpg",
+  width = 10,
+  height = 5
+)
+```
 
 
 # Section info
