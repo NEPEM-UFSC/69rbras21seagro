@@ -1,5 +1,5 @@
 ---
-title: "01: Diversidade genética em genótipos de linho (Linum usitatissimum, L.) cultivados em Florianópolis-SC"
+title: "01: Diversidade genética em genótipos de linho (Linum usitatissimum, L.) cultivados em Florianópolis-SC."
 ---
 
 ```{r global_options, include = FALSE}
