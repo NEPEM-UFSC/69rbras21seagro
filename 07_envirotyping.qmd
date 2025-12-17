@@ -1,5 +1,5 @@
 ---
-  title: ""
+title: "07: Caracterização climática em ambientes contrastantes de cultivo de linhaça em Santa Catarina"
 ---
 
 ```{r global_options, include = FALSE}
@@ -23,6 +23,7 @@ library(ggridges)
 library(rio)
 library(ggthemes)
 library(patchwork)
+library(pliman)
 env <- c("FLO2022", "FLO2023", "CN2024")
 lat <- c(-27.681, -27.681, -27.370)
 lon <- c(-48.541, -48.541, -51.204)
@@ -30,16 +31,16 @@ start.day <- c("15/04/2022", "15/04/2023", "20/05/2024")
 end.day <-   c("30/09/2022", "30/09/2023", "15/11/2024")
 
 as.Date("15/04/2022", format = "%d/%m/%Y") + 150
-climate <- 
-  envirotypeR::get_weather(
-    env.id = env,
-    lat = lat,
-    lon = lon,
-    start.day = start.day,
-    end.day = end.day
-  )
-
-export(climate, "data/climate.xlsx")
+# climate <- 
+#   envirotypeR::get_weather(
+#     env.id = env,
+#     lat = lat,
+#     lon = lon,
+#     start.day = start.day,
+#     end.day = end.day
+#   )
+# 
+# export(climate, "data/climate.xlsx")
 climate <- 
   import("data/climate.xlsx") |> 
   mutate(env = factor(env, c("FLO2022", "FLO2023", "CN2024")))
@@ -142,7 +143,7 @@ relacao_tmax + relacao_tmin + relacao_ur +
   plot_layout(guides = "collect") & 
   theme(legend.position = "bottom")
 
-ggsave("figs/relacao_nasapower_estacao.jpg", width = 12, height = 8)
+# ggsave("figs/relacao_nasapower_estacao.jpg", width = 12, height = 8)
 
 # checar a coincidencia
 coef_tmax <- 
@@ -177,9 +178,19 @@ dfplot <-
                        delim = "-")
 
 
+ptmin <- 
+  ggplot(dfplot, aes(T2M_MIN, y = mes, fill = after_stat(x))) +
+  facet_wrap(~env, ncol = 1, scales = "free_y") +
+  geom_density_ridges_gradient() +
+  scale_fill_viridis_c() +
+  theme(axis.text.y = element_text(angle = 0)) +
+  labs(x = "Temperatura mínima (ºC)",
+       y = "Mês do ano",
+       fill = "(ºC)")
+
 ptmax <- 
-  ggplot(dfplot, aes(RH2M, y = mes, fill = after_stat(x))) +
-  facet_wrap(~env, ncol = 1) +
+  ggplot(dfplot, aes(T2M_MAX, y = mes, fill = after_stat(x))) +
+  facet_wrap(~env, ncol = 1, scales = "free_y") +
   geom_density_ridges_gradient() +
   scale_fill_viridis_c() +
   theme(axis.text.y = element_text(angle = 0)) +
@@ -189,7 +200,7 @@ ptmax <-
 
 pumre <- 
   ggplot(dfplot, aes(RH2M, y = mes, fill = after_stat(x))) +
-  facet_wrap(~env, ncol = 1) +
+  facet_wrap(~env, ncol = 1, scales = "free_y") +
   geom_density_ridges_gradient() +
   scale_fill_viridis_c() +
   theme(axis.text.y = element_text(angle = 0)) +
@@ -248,16 +259,18 @@ dfclasses <-
 
 etmax <- 
   ggplot(dfclasses) +
-  geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
+  geom_bar(aes(x=Freq,  y = env, fill = xcut),
            position = "fill",
            stat = "identity",
            width = 1,
            color = "white",
            size=.2)+
-  facet_wrap(~env, ncol = 1) +
+  facet_wrap(~estadio, ncol = 1) +
   theme(legend.position = "bottom") +
+    scale_x_continuous(expand = expansion(0)) +
+  scale_y_discrete(expand = expansion(0)) +
   labs(x = "Frequência relativa",
-       y = "Estádio fenológico",
+       y = "Ambiente de cultivo",
        fill = "Temp máxima (ºC)")
 
 
@@ -280,16 +293,18 @@ dfettmin <-
 
 etmin <- 
   ggplot(dfettmin) +
-  geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
+  geom_bar(aes(x=Freq,  y = env, fill = xcut),
            position = "fill",
            stat = "identity",
            width = 1,
            color = "white",
            size=.2)+
   theme(legend.position = "bottom") +
-  facet_wrap(~env, ncol = 1) +
+    scale_x_continuous(expand = expansion(0)) +
+  scale_y_discrete(expand = expansion(0)) +
+  facet_wrap(~estadio, ncol = 1) +
   labs(x = "Frequência relativa",
-       y = "Estádio fenológico",
+       y = "Ambiente de cultivo",
        fill = "Temp mínima (ºC)")
 
 # ENVIROTYPE UR
@@ -311,64 +326,30 @@ dfettur <-
 
 etur <- 
   ggplot(dfettur) +
-  geom_bar(aes(x=Freq,  y = estadio, fill = xcut),
+  geom_bar(aes(x=Freq,  y = env, fill = xcut),
            position = "fill",
            stat = "identity",
            width = 1,
            color = "white",
            size=.2)+
-  facet_wrap(~env, ncol = 1) +
+  facet_wrap(~estadio, ncol = 1) +
+  scale_x_continuous(expand = expansion(0)) +
+  scale_y_discrete(expand = expansion(0)) +
   theme(legend.position = "bottom") +
-  labs(x = "Frequência relativa",
+  labs(x = "Ambiente de cultivo",
        y = "Estádio fenológico",
        fill = "Umidade Relativa (%)")
 
 # juntar os gráficos
 etmax + etmin + etur +
   plot_annotation(tag_levels = "a", tag_suffix = ")")
-ggsave("figs/envirotype.jpg", width = 16, height = 5)
+
+# ggsave("figs/envirotype.jpg", width = 13, height = 5)
 
 # rbind dos dados
 bind_rows(dfettur, dfettmin, dfclasses) |> 
   export("data/envirotype.xlsx")
 ```
-
-
-
-
-
-
-```{r}
-
-variable <- "VPD"
-# p4 <-
-out |>
-  subset(var == variable) |> # change the variable here
-  ggplot() +
-  geom_bar(aes(x=Freq,  y = env, fill = freq),
-           position = "fill",
-           stat = "identity",
-           width = 1,
-           color = "white",
-           size=.2) +
-  facet_wrap(~interval, ncol = 5) +
-  scale_y_discrete(expand = c(0,0))+
-  scale_x_continuous(expand = c(0,0))+
-  labs(x = 'Relative frequency',
-       y = "Mega-Environment",
-       fill='Envirotype')+
-  theme(axis.title = element_text(size=12),
-        legend.text = element_text(size=9),
-        strip.text = element_text(size=12),
-        legend.title = element_text(size=12),
-        strip.background = element_rect(fill="gray95",size=1)) +
-  theme(legend.position = "bottom") +
-  ggthemes::scale_fill_stata()
-ggsave("figs/vpd.jpg", width = 12, height = 3)
-
-
-```
-
 
 
 

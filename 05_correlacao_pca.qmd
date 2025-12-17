@@ -1,5 +1,5 @@
 ---
-title: "04: MGIDI para seleção de genótipos de Linum usitatissimum no melhoramento genético vegetal"
+title: "05: Análise de Correlação e PCA em Genótipos de Linhaça (Linum usitatissimum L.) Dourada e Marrom"
 ---
 
 ```{r global_options, include = FALSE}
@@ -71,7 +71,7 @@ lowerpv[is.na(lowerpv)] <- upperpv[is.na(lowerpv)]
 diag(lowerpv) <- 1
 
 
-jpeg("figs/correlacao.jpg", width = 6, height = 6, units = "in", res = 600)
+# jpeg("figs/correlacao.jpg", width = 6, height = 6, units = "in", res = 600)
 corrplot(lower,
          method = "number",
          p.mat = lowerpv,
@@ -80,7 +80,7 @@ corrplot(lower,
          pch.cex = 1,
          pch.col = "gray50",
          diag = FALSE)
-dev.off()
+# dev.off()
 
 
 cor_d <- tidy_sym(corrs$corr[[1]]$cor, keep_diag = FALSE)
@@ -124,9 +124,9 @@ bip_m <- fviz_pca_biplot(pcam, repel = TRUE) + theme_stata()
 bip_d + bip_m +
   plot_annotation(tag_levels = list(c("Dourada", "Marrom")))
 
-ggsave("figs/biplot_pca.jpg",
-       width = 15,
-       height = 6)
+# ggsave("figs/biplot_pca.jpg",
+#        width = 15,
+#        height = 6)
 ```
 
 

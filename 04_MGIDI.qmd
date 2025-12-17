@@ -1,5 +1,5 @@
 ---
-title: "04: MGIDI para seleção de genótipos de Linum usitatissimum no melhoramento genético vegetal"
+title: "04: Índice de seleção MGIDI na avaliação de genótipos superiores de linhaça"
 ---
 
 ```{r global_options, include = FALSE}
@@ -33,9 +33,10 @@ dfgens <-
   import("data/dados_plantas.xlsx") |> 
   mutate(CP = AP - AC) |> 
   group_by(GEN) |> 
-  summarise(across(AP:CP, \(x){mean(x, na.rm = TRUE)})) |> 
+  summarise(across(AP:ICC, \(x){mean(x, na.rm = TRUE)})) |> 
   select(-AC)
 ```
+
 
 
 # Network de correlações
@@ -50,7 +51,7 @@ gc <- network_plot(corr)
 # MGIDI para seleção dos genótipos
 ## Sem pesos
 ```{r}
-ideotipo <- c("70, h, h, 8, h, h, h, h, 30")
+ideotipo <- c("70, h, h, 8, h, h, h, h, h")
 # sem pesos
 mod_mgidi <- 
   mgidi(
@@ -58,7 +59,7 @@ mod_mgidi <-
     ideotype = ideotipo,
     SI = 25
   )
-pmgidi_sp <- plot(mod_mgidi)
+pmgidi_sp <- plot(mod_mgidi, SI = 25)
 ```
 
 ## Com pesos
@@ -71,9 +72,11 @@ mod_mgidi_pesos <-
     SI = 25
   )
 
-pmgidi_cp <- plot(mod_mgidi_pesos)
+pmgidi_cp <- plot(mod_mgidi_pesos, SI = 25)
 pmgidi_sp + pmgidi_cp +
+  plot_annotation(tag_levels = "a") +
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
+
 
 ggsave("figs/mgidi.jpg",
        width = 14,
@@ -86,16 +89,27 @@ ggsave("figs/mgidi.jpg",
 gensp <- sel_gen(mod_mgidi)
 gencp <- sel_gen(mod_mgidi_pesos)
 
-venn_plot(gencp,
-          gensp, 
-          show_elements = TRUE,
-          split_each  =3, 
-          split_labels = TRUE,
-          names = c("Com peso", "Sem Peso")) 
+selected <-
+  venn_plot(gencp,
+            gensp, 
+            show_elements = TRUE,
+            split_each  = 1, 
+            fill = pliman::ggplot_color(2),
+            split_labels = TRUE,
+            names = c("Com peso", "Sem peso")) +   
+  theme_stata(base_size = 14) +
+  theme(panel.grid.major = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank()) + 
+    labs(x = NULL,
+         y = NULL)
 
-ggsave("figs/sel_gen_mgidi.jpg",
-       width = 8,
-       height = 6)
+# ggsave("figs/sel_gen_mgidi.jpg",
+#        width = 8,
+#        height = 6)
 
 ```
 
@@ -105,13 +119,19 @@ gcp <- get_model_data(mod_mgidi_pesos) |> mutate(peso = "Com peso")
 gsp <- get_model_data(mod_mgidi) |> mutate(peso = "Sem peso")
 
 ganhos <- bind_rows(gcp, gsp)
-ggplot(ganhos, aes(VAR, SDperc)) +
+figs_ganhos <- 
+  ggplot(ganhos, aes(VAR, SDperc)) +
   geom_col(aes(fill = peso), position = position_dodge()) +
   labs(x = "Variável", y = "Diferencial de seleçao (%)") +
-  theme_stata()
+  theme_stata(base_size = 14) +
+  theme(legend.position = "right")
+
+selected  + figs_ganhos +
+  plot_annotation(tag_levels = "a")
+
 ggsave("figs/ganhos_mgidi.jpg",
-       width = 7,
-       height = 5)
+       width = 18,
+       height = 7)
 
 ```
 
@@ -139,9 +159,9 @@ ggplot(dfggplot, aes(reorder(GEN, -MG), MG)) +
        y = "",
        fill = "")
 
-ggsave("figs/velocimetro.jpg",
-       width = 16,
-       height = 6)
+# ggsave("figs/velocimetro.jpg",
+#        width = 16,
+#        height = 6)
 
 ```
 

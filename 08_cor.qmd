@@ -1,5 +1,5 @@
 ---
-title: ""
+title: "08: Cor"
 ---
 
 ```{r global_options, include = FALSE}
@@ -28,7 +28,7 @@ color <- import("data/color_2023.xlsx")
 color <- 
   color |> 
   mutate(GEN = str_remove(img, pattern = "proc_")) |> 
-  select(-c(h, s, b, img)) |> 
+  # select(-c(h, s, b, img)) |> 
   relocate(GEN, .before = 1)
 
 dfcolor <- 
@@ -87,7 +87,6 @@ cordf <-
     # vNDVI = 0.5268 * (R - 0.1294 * G^0.3389 * B - 0.3118),
     # WI = (G - B) / (R - G)
   )
-
 
 ```
 

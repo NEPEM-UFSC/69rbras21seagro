@@ -1,5 +1,5 @@
 ---
-title: "02: Identificação de espécies de plantas por análise de imagens: uma abordagem com Random Forest e características de forma e cor"
+title: "02: Avanços no melhoramento do linho no Sul do Brasil: Resultados do Programa de Melhoramento NEPEM/UFSC"
 ---
 
 ```{r global_options, include = FALSE}
@@ -124,13 +124,14 @@ dens <-
 
 library(patchwork)
 box /dens +
+  plot_annotation(tag_levels = "a") + 
   plot_layout(guides = "collect",
               heights = c(0.3, 0.7)) & 
   theme(legend.position = "bottom")
 
-ggsave("figs/ganho.jpg",
-       width = 10, 
-       height = 6)
+# ggsave("figs/ganho.jpg",
+#        width = 10, 
+#        height = 6)
 
 ```
 
@@ -143,7 +144,6 @@ df2024 <-
   df$`2024` |> 
   mutate(check = ifelse(GEN == "ST_PIONEIRA", "Check", "Genótipos NEPEM"))
 
-ifelse("A" == "B")
 
 df2024 |> 
   group_by(check) |> 

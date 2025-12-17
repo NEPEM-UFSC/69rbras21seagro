@@ -1,5 +1,5 @@
 ---
-title: "01: Diversidade genética em genótipos de linho (Linum usitatissimum, L.) cultivados em Florianópolis-SC"
+title: "01: Protocolo para contagem automatizada de cápsulas de linhaça utilizando o pacote R pliman"
 ---
 
 ```{r global_options, include = FALSE}
@@ -20,18 +20,17 @@ library(pliman)
 library(tidyverse)
 library(purrr)
 library(rio)
-set_wd_here("figs/capsulas")
-img <- image_import("a1426e78-6bc2-4ce4-9d58-0777384c066d.jpg", resize = 50)
+library(ggthemes)
+img <- image_import("figs/capsulas/a1426e78-6bc2-4ce4-9d58-0777384c066d.jpg", resize = 50)
 bin <- image_binary(img, index = "GRAY")[[1]]
 fmed <- image_filter(bin, size = 3)
 boa <- image_opening(fmed, size = 20)
 image_combine(img, bin, fmed, boa, ncol = 2)
 
-
 ```
 
 # Contagem manual
-```{r}
+```{r eval=FALSE}
 pick_count(img)
 
 ```
@@ -43,7 +42,7 @@ pick_count(img)
 # Processamento em lote (validação)
 
 
-```{r}
+```{r eval=FALSE}
 res_val <- 
   analyze_objects(
     pattern = "-",
@@ -84,8 +83,8 @@ export(res_graos$results, "data/graos_raw.csv")
 
 
 # Cenário 100%
-```{r}
-set_wd_here()
+```{r eval=FALSE}
+# set_wd_here()
 
 # CENÁRIO COM IMAGENS ORIGINAIS
 cenarios <- expand_grid(open = c(0, 25),
@@ -195,7 +194,7 @@ df <-
   mutate(filter = paste0("filter = ", filter),
          opening = paste0("opening = ", opening))
 
-# Agora computa as métricas (vou computar elas depois de novo para colocar nos gráficos)
+ # Agora computa as métricas (vou computar elas depois de novo para colocar nos gráficos)
 df |> 
   group_by(filter, opening, resolucao) %>%
   ccc(real, predito) %>%
@@ -217,7 +216,7 @@ dfvalid <-
   mutate(ccc = map(data, function(x){
     x |> 
       group_by(filter, opening) %>%
-      ccc_lin(real, predito) |> 
+      ccc(real, predito) |> 
       mutate(
         ccc = paste0("rho[c]:~", round(ccc, 3)),
         rmse = paste0("RMSE:~", round(rmse, 3)),
@@ -225,7 +224,9 @@ dfvalid <-
     
   }))
 
-# 100# 
+
+
+
 ggplot(dfvalid$data[[1]], aes(predito, real)) +
   geom_point(alpha = 0.5, color = "darkgreen") +
   facet_grid(filter ~ opening) +
@@ -259,9 +260,9 @@ ggplot(dfvalid$data[[1]], aes(predito, real)) +
   labs(x = "Valor predito",
        y = "Valor observado")
 
-ggsave("figs/plot_acuracia_100.jpg",
-       width = 6,
-       height = 6)
+# ggsave("figs/plot_acuracia_100.jpg",
+#        width = 6,
+#        height = 6)
 
 ## 50%
 ggplot(dfvalid$data[[2]], aes(predito, real)) +
@@ -297,9 +298,9 @@ ggplot(dfvalid$data[[2]], aes(predito, real)) +
   labs(x = "Valor predito",
        y = "Valor observado")
 
-ggsave("figs/plot_acuracia_50.jpg",
-       width = 6,
-       height = 6)
+# ggsave("figs/plot_acuracia_50.jpg",
+#        width = 6,
+#        height = 6)
 
 # 25%
 ggplot(dfvalid$data[[3]], aes(predito, real)) +
@@ -334,9 +335,9 @@ ggplot(dfvalid$data[[3]], aes(predito, real)) +
   theme(panel.grid.major.y  = element_blank()) +
   labs(x = "Valor predito",
        y = "Valor observado") 
-ggsave("figs/plot_acuracia_25.jpg",
-       width = 6,
-       height = 6)
+# ggsave("figs/plot_acuracia_25.jpg",
+#        width = 6,
+#        height = 6)
 
 ```
 

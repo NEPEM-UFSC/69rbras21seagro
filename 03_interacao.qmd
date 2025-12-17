@@ -1,5 +1,5 @@
 ---
-  title: ""
+title: "03: Adaptabilidade e estabilidade de genótipos experimentais de linhaça cultivados em ambientes contrastantes de Santa Catarina"
 ---
 
 ```{r global_options, include = FALSE}
@@ -19,6 +19,9 @@ library(rio)
 library(tidyverse)
 library(metan)
 library(ggridges)
+library(ggthemes)
+library(patchwork)
+
 df <- import_list("data/progresso.xlsx")
 g2022 <- df$`2022` |> select(GEN, RGPLA) |> rename(A2022 = RGPLA)
 g2023 <- df$`2023` |> select(GEN, RGPLA) |> rename(A2023 = RGPLA)
@@ -31,11 +34,7 @@ dfge <-
 
 df_ggplot <- 
   dfge |> 
-  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA") |> 
-  filter(GEN %in% c("G1", "G13"))
-
-ggplot(df_ggplot, aes(x = GEN, y = RGPLA, fill = AMB)) +
-  geom_col(position = position_dodge())
+  pivot_longer(-GEN, names_to = "AMB", values_to = "RGPLA")
 ```
 
 
@@ -82,17 +81,20 @@ mat_ef |>
   pivot_longer(-gen, names_to = "amb", values_to = "rg")
 
 # phm <- 
-ggplot(dfggp, aes(amb, gen, fill = rg))+
-  geom_tile() +
+ggplot(dfggp, aes(gen, amb, fill = rg))+
+  geom_tile(color = "black") +
   scale_fill_gradient2(low = "red", high = "blue") +
   scale_x_discrete(expand = expansion(0)) +
   scale_y_discrete(expand = expansion(0)) +
-  labs(x = "Ano de cultivo",
-       y = "Genótipo")
+  theme(axis.text.x = element_text(angle = 45,
+                                   vjust = 1,
+                                   hjust = 1)) +
+  labs(x = "Genótipo",
+       y = "Ano de cultivo")
 
 ggsave("figs/heatmap.jpg",
-       width = 4,
-       height = 6)
+       width = 8,
+       height = 2)
 
 
 ```
@@ -110,15 +112,13 @@ p2 <-
     labs(x = "Rendimento de grãos por planta (g)",
        y = "Média ponderada dos escores absolutos (WAAS)")
 
-
-
-
 p1 + p2 + 
+  plot_annotation(tag_levels = "a") +
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 
 ggsave("figs/waas_biplot.jpg",
        width = 13,
-       height = 6)
+       height = 7)
 ```
 
 # Estabilidade
@@ -149,6 +149,7 @@ waas_vals <-
 stabs <- left_join(waas_vals, eco)
 ggplot(stabs, aes(WAAS, ecovalencia)) +
   geom_point()
+
 cor(stabs$WAAS, stabs$ecovalencia)
 
 ```

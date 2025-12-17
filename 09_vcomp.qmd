@@ -1,5 +1,5 @@
 ---
-  title: "Dissimilaridade genética e componentes de variância em genótipos de linho dourado e marrom"
+title: "09: Dissimilaridade genética e componentes de variância em genótipos de linho dourado e marrom"
 ---
 
 ```{r global_options, include = FALSE}
@@ -28,8 +28,6 @@ df <-  import("data/dados_plantas.xlsx")
 ```
 
 
-
-
 # Boxplot
 
 ```{r}
@@ -55,9 +53,12 @@ ggplot(df, aes(MG, GEN, fill = TIPO)) +
 ## Modelo
 ```{r}
 
-vcomp <- function(data, traits, gen_col = "GEN",
+vcomp <- function(data,
+                  traits, 
+                  gen_col = "GEN",
                   plant_col = "PLANTA",
-                  block_col = "BLOCK", check_col = "CHECKS") {
+                  block_col = "BLOCK",
+                  check_col = "CHECKS") {
   
   data$GEN_PLANTA <- interaction(data[[gen_col]], data[[plant_col]], drop = TRUE)
   resultados <- lapply(traits, function(trait) {
@@ -112,10 +113,20 @@ df_vcomp <-
     )
   )
 
-vcmp <- 
+dfh2 <- 
+  vals |> 
+  slice(5) |> 
+    pivot_longer(-parametro)
+
+vcmp <-
 ggplot(df_vcomp, aes(name, value))+
   geom_col(aes(fill = parametro), position = "fill",
            color = "black") +
+  geom_point(data = dfh2,
+             aes(y = value, x = name),
+             size = 3,
+             fill = "darkgreen",
+             shape = 23) +
   theme_stata(base_size = 14) +
   scale_y_continuous(expand = expansion(0)) +
   scale_x_discrete(expand = expansion(0)) +
@@ -193,9 +204,6 @@ mat <-
 
 matd <- mat$data[[1]] |> column_to_rownames("GEN")
 ddourada <- clustering(matd)
-min(ddourada)
-max(ddourada)
-
 
 dend_dourada <- 
   fviz_dend(ddourada$hc,
@@ -221,11 +229,11 @@ dend_dourada + dend_marrom +
   plot_layout(widths = c(0.3, 0.7)) +
   plot_annotation(tag_levels = "a", 
                   tag_suffix = ")")
-ggsave(
-  "figs/dendrograma.jpg",
-  width = 10,
-  height = 5
-)
+# ggsave(
+#   "figs/dendrograma.jpg",
+#   width = 10,
+#   height = 5
+# )
 ```
 
 

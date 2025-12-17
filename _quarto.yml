@@ -1,61 +1,68 @@
 project:
   type: website
   output-dir: docs
-  render: 
-    - "*.qmd"
+  render:
+    - 00_about.qmd
+    - 01_pliman_capsulas.qmd
+    - 02_progresso.qmd
+    - 03_interacao.qmd
+    - 04_MGIDI.qmd
+    - 05_correlacao_pca.qmd
+    - 06_trilha.qmd
+    - 07_envirotyping.qmd
+    - 08_cor.qmd
+    - 09_vcomp.qmd
 
-theme:
-  light: flatly
-  dark: darkly
 website:
+  title: "69 RBras - 21 SEAGRO"
   search:
     location: sidebar
-  title: "69 RBras | 21 SEAGRO"
-  page-footer:
-    border: true
-    background: light
-    left: "Núcleo de Estudos e Pesquisas em Experimentação e Melhoramento Vegetal - NEPEM"
-    right: "FIT/CCA/UFSC "
   page-navigation: true
   navbar:
     background: "#0759e8"
-    # foreground: dark
     search: true
     left:
       - text: "About"
         file: 00_about.qmd
         icon: fa fa-home
-
-
     right:
       - icon: "fab fa-researchgate fa"
         href: https://www.researchgate.net/profile/Tiago_Olivoto
-      - icon: bi bi-github
+      - icon: "bi bi-github"
         href: https://github.com/TiagoOlivoto/pliman
-      - icon: bi bi-twitter
+      - icon: "bi bi-twitter"
         href: https://twitter.com/tolivoto
       - icon: "fab fa-mendeley fa"
         href: https://www.mendeley.com/profiles/tiago-olivoto/
-
-
   sidebar:
-    - title: "Contents"
-      style: "docked"
-      background: light
-      contents:
-        - 01_diversidade.qmd
-        - 02_rf_especies.qmd
-        - 03_pca.qmd
+    style: "docked"
+    background: light
+    contents:
+        -  01_pliman_capsulas.qmd
+        -  02_progresso.qmd
+        -  03_interacao.qmd
+        -  04_MGIDI.qmd
+        -  05_correlacao_pca.qmd
+        -  06_trilha.qmd
+        -  07_envirotyping.qmd
+        -  08_cor.qmd
+        -  09_vcomp.qmd
+  page-footer:
+    border: true
+    background: light
+    left: "Núcleo de Estudos e Pesquisas em Experimentação e Melhoramento Vegetal - NEPEM"
+    right: "FIT/CCA/UFSC"
+
 format:
-  html: 
+  html:
     grid:
       sidebar-width: 500px
       body-width: 900px
       margin-width: 200px
       gutter-width: 1.5rem
     theme:
-       light: journal
-       dark: darkly
+      light: journal
+      dark: darkly
     toc: true
     toc-title: "In this page"
     number-sections: true
@@ -64,13 +71,11 @@ format:
     code-fold: false
     code-tools: true
     code-block-bg: "#f5f2f2"
-    highlight-style: tango
     code-block-border-left: "#31BAE9"
     code-link: true
-    
-
 
 execute:
   collapse: true
+
 fig-responsive: true
 fig-align: center
