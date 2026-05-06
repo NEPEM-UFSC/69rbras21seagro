@@ -12,6 +12,7 @@ knitr::opts_chunk$set(cache = FALSE,
 ```
 
 
+
 # Pacotes
 
 ```{r warning=FALSE, message=FALSE}
@@ -38,6 +39,11 @@ df_ggplot <-
 ```
 
 
+# Exploração
+```{r}
+p0 <- ge_plot(df_ggplot, AMB, GEN, RGPLA)
+```
+
 
 # Interação genótipo ambiente
 
@@ -56,70 +62,136 @@ $$
 
 
 ```{r}
-matga <- dfge |> column_to_rownames("GEN") |> as.matrix()
-m <- mean(matga)
+gemat <- 
+  dfge |> 
+  column_to_rownames("GEN") |> 
+  as.matrix()
 
-# ESTIMANDO O EFEITO DA INTERAÇÃO
-mat_ef <- matrix(NA, ncol = ncol(matga), nrow = nrow(matga))
 
-for(i in 1:nrow(matga)){
-  egi <- mean(matga[i, ]) - m
-  for(j in 1:ncol(matga)){
-    eaj <- mean(matga[, j]) - m
-    mat_ef[i, j] <- matga[i, j] - m - egi - eaj
+m <- mean(gemat)
+geef <- matrix(NA, nrow = nrow(gemat), ncol = ncol(gemat))
+rownames(geef) <- rownames(gemat)
+colnames(geef) <- colnames(gemat)
+
+for(j in 1:ncol(geef)){
+  for(i in 1:nrow(geef)){
+    mg1 <- mean(gemat[i, ])
+    ma1 <- mean(gemat[, j])
+    # Calcular efeitos
+    efg1 <- mg1 - m
+    efa1 <- ma1 - m
+    geef[i, j] <- gemat[i, j] - m - efg1 - efa1
   }
 }
-colnames(mat_ef) <- colnames(matga)
-rownames(mat_ef) <- rownames(matga)
 
 
-# criar um mapa de calor
-dfggp <- 
-mat_ef |> 
+heatmap(geef)
+geef |> 
   as.data.frame() |> 
-  tibble::rownames_to_column("gen") |> 
-  pivot_longer(-gen, names_to = "amb", values_to = "rg")
-
-# phm <- 
-ggplot(dfggp, aes(gen, amb, fill = rg))+
-  geom_tile(color = "black") +
-  scale_fill_gradient2(low = "red", high = "blue") +
-  scale_x_discrete(expand = expansion(0)) +
-  scale_y_discrete(expand = expansion(0)) +
-  theme(axis.text.x = element_text(angle = 45,
-                                   vjust = 1,
-                                   hjust = 1)) +
-  labs(x = "Genótipo",
-       y = "Ano de cultivo")
-
-ggsave("figs/heatmap.jpg",
-       width = 8,
-       height = 2)
+  rownames_to_column("GEN") |> 
+  pivot_longer(-GEN) |> 
+  ge_plot(name, GEN, value)
 
 
 ```
+
+
+# Análise AMMI
+
+$$
+y_{ij} = m + g_i + a_j + \sum_{i=1}^{k}{\lambda_k\tau_{ik}\omega_{jk}}
+$$
+
+
+```{r}
+
+# Decomposição por valor singular
+s <- svd(geef)
+d <- s$d[1:2]
+u <- s$u[, 1:2]
+v <- s$v[, 1:2]
+
+# retorna a matriz dos efeitos da interação
+u %*% diag(d) %*% t(v)
+
+# escores dos genótipos
+escoregen <- 
+  u %*% sqrt(diag(d)) |> 
+  as.data.frame() |> 
+  mutate(code = rownames(geef),
+         tipo = "gen") |> 
+  rename(IPCA1 = V1, IPCA2 = V2)
+
+# escores dos ambientes
+escoreamb <- v %*% sqrt(diag(d)) |> 
+  as.data.frame() |> 
+  mutate(code = colnames(geef),
+         tipo = "amb") |> 
+  rename(IPCA1 = V1, IPCA2 = V2)
+
+dfplot <- bind_rows(escoregen, escoreamb)
+
+library(ggrepel)
+p1 <- 
+  ggplot(dfplot, aes(IPCA1, IPCA2, color = tipo)) + 
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  geom_text_repel(aes(label = code)) +
+  geom_point() +
+  theme_minimal() +
+  geom_segment(aes(x = 0, y = 0,
+                   xend = IPCA1,
+                   yend = IPCA2),
+               data = dfplot |> filter(tipo == "amb"),
+               arrow = arrow(length = unit(0.1, "inches")))
+
+
+p0 + p1
+```
+
+
 
 # Adaptabilidade
+## Método WAAS
+OLIVOTO, T. et al. Mean Performance and Stability in Multi‐Environment Trials I: Combining Features of AMMI and BLUP Techniques. Agronomy Journal, v. 111, n. 6, p. 2949–2960, 2019. 
+
+
 ```{r}
-mod <- waas_means(df_ggplot, AMB, GEN, RGPLA)
-p1 <- 
-  plot_scores(mod, type = 2) + 
-  theme_stata() +
-  coord_equal()
-p2 <- 
-  plot_scores(mod, type = 3) +
-    theme_stata() + 
-    labs(x = "Rendimento de grãos por planta (g)",
-       y = "Média ponderada dos escores absolutos (WAAS)")
+explicacao <- d^2 / sum(d^2)
+dfplot
+## WAAS G1
+(0.296928317 * 0.7554673) + (0.12003188 * 0.2445327)
 
-p1 + p2 + 
-  plot_annotation(tag_levels = "a") +
-  plot_layout(guides = "collect") & theme(legend.position = "bottom")
+# computar as médias dos genótipos e ambientes
 
-ggsave("figs/waas_biplot.jpg",
-       width = 13,
-       height = 7)
+mg <- 
+  df_ggplot |> 
+  group_by(GEN) |> 
+  summarise(RGPLA = mean(RGPLA)) |> 
+  rename(code = GEN)
+ma <- 
+  df_ggplot |> 
+  group_by(AMB) |> 
+  summarise(RGPLA = mean(RGPLA)) |> 
+  rename(code = AMB)
+
+waas <- 
+  dfplot |> 
+  rowwise() |> 
+  mutate(WAAS = weighted.mean(abs(c_across(IPCA1:IPCA2)), w = explicacao)) |> 
+  left_join(bind_rows(mg, ma))
+
+# média versus estabilidade
+ggplot(waas, aes(RGPLA, WAAS, color = tipo)) +
+  geom_point() +
+  geom_hline(aes(yintercept = mean(WAAS))) +
+  geom_vline(aes(xintercept = mean(RGPLA))) +
+    geom_text_repel(aes(label = code))
 ```
+
+
+
+
 
 # Estabilidade
 ## Método Wricke
@@ -127,32 +199,9 @@ ggsave("figs/waas_biplot.jpg",
 WRICKE, G. Zur Berechnung der Ökovalenz bei Sommerweizen und Hafer. Zeitschrift für Pflanzenzüchtung, v.52, p.127-138, 1965.
 
 ```{r}
-ecovalencia <- 
-  apply(mat_ef, 1, function(x){
-    sum(x^2)
-  })
-eco <- data.frame(ecovalencia) |> rownames_to_column("GEN")
-
 
 ```
 
-
-## Método WAAS
-OLIVOTO, T. et al. Mean Performance and Stability in Multi‐Environment Trials I: Combining Features of AMMI and BLUP Techniques. Agronomy Journal, v. 111, n. 6, p. 2949–2960, 2019. 
-
-
-```{r}
-waas_vals <- 
-  get_model_data(mod) |> 
-  rename(WAAS = RGPLA)
-
-stabs <- left_join(waas_vals, eco)
-ggplot(stabs, aes(WAAS, ecovalencia)) +
-  geom_point()
-
-cor(stabs$WAAS, stabs$ecovalencia)
-
-```
 
 
 
